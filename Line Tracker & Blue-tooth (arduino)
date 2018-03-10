@@ -180,8 +180,8 @@ void loop()
 		break;
 		
 		case 0:									//  0 0 0 0 0    ->   -5 or 5 (depend on previous state)
-		if(turnWeight<0)turnWeight=-5;			//if it was left turn more left
-		else turnWeight=5;						//if it was right turn more right
+		if(turnWeight<0)turnWeight-=1;			//if it was left turn more left
+		else turnWeight+=1;						//if it was right turn more right
 		break;
 		
 		default:
