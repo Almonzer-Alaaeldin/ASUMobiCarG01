@@ -3,7 +3,7 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 #define maxObst     5             //for tuning max obstacle distance in cm
 #define spedSound 0.0343           //speed of sound in cm/us
 
-#define digisped  70
+#define digisped  100
 #define digiturn  70    //for keypad speed and turning
 
 #define LmotorFor    3     //IN1       l298n   motor drive module
@@ -13,8 +13,8 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 #define RmotorBac    4     //IN4
 #define RmotorSpe    6     //EN2
 
-#define trigUltra    10     //ultra sonic module trigger pin
-#define echoUltra    11     //ultra sonic module echo pin
+#define trigUltra    8     //ultra sonic module trigger pin
+#define echoUltra    9     //ultra sonic module echo pin
 
 #define lineTrcVL     14      //the very left //we can use analog pins as digital pins by using numbers from 14-19
 #define lineTrcL      15      //the left 
@@ -91,7 +91,7 @@ int obstEcho()          //the generic code for the ultrasonic module
 
 void setup() 
 {
- Serial.begin(9600);
+ Serial.begin(38400);
  pinMode(LmotorFor,OUTPUT);
  pinMode(LmotorBac,OUTPUT);
  pinMode(LmotorSpe,OUTPUT);
@@ -218,11 +218,11 @@ void loop()
     switch (reading)
     {
       case 'X' :    //the analog pad reading send   X....Y....
-      trn=Serial.read();
+      trn=Serial.parseInt();
       reading=Serial.read();
       if(reading=='Y')
       {
-        mov=Serial.read();
+        mov=Serial.parseInt();
         moveCar(mov,trn);
       }
       break;
@@ -332,3 +332,4 @@ void loop()
   
 
 }
+
