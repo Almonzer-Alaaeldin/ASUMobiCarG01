@@ -207,7 +207,7 @@ void loop()
   turnValue=(P*Pweight)+(I*Iweight)+(D*Dweight);    //finally the turning value which will control the response of the car is the sum of all values
   lastTurn=turnWeight;                //each multiplied by their respective weights
   turnValue=constrain(turnValue,-100,100);
-  moveCar(lineTrcSpe,turnValue);
+  moveCar(-1*lineTrcSpe,turnValue);
   
   Serial.print("*p");
   Serial.print(P);  //displaying current P on the control device
