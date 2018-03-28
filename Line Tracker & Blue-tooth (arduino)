@@ -1,10 +1,10 @@
 int lineTrcSpe=70;              //for the line tracker mode
 float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every value in PID method used in line tracker to be tunned
-#define maxObst     5             //for tuning max obstacle distance in cm
+#define maxObst     9             //for tuning max obstacle distance in cm
 #define spedSound 0.0343           //speed of sound in cm/us
 
-#define digisped  100
-#define digiturn  70    //for keypad speed and turning
+#define digisped  80
+#define digiturn  80    //for keypad speed and turning
 
 #define LmotorFor    3     //IN1       l298n   motor drive module
 #define LmotorBac    2     //IN2
@@ -50,12 +50,10 @@ void moveCar(int movement , int turning) //takes percentage of movement and turn
     {
       turning =-1*turning;     //when moving backwards the turning value is reversed
     }
-    right=map(turning,-100,100,-255,255);
+    right=turning;
     left =-1*right;
     left=left+ movement;      
     right=right+movement;
-    left=constrain(left,-255,255);
-    right=constrain(right,-255,255);
     if (right<0)          //test for negative values to determine direction then make them positive for using
     {
       forR=HIGH;
@@ -68,6 +66,14 @@ void moveCar(int movement , int turning) //takes percentage of movement and turn
       left=0-left;
     }
     else forL=LOW;
+
+    right=map(right,0,100,50,255); 
+    left=map(left,0,100,50,255);
+    left=constrain(left,0,255);
+    right=constrain(right,0,255);
+    
+    Serial.print("*C"+String(left)+"*");
+    Serial.print("*E"+String(right)+"*");
     digitalWrite(LmotorFor,forL);
     digitalWrite(LmotorBac,!forL);
     analogWrite(LmotorSpe,left);
@@ -113,23 +119,28 @@ void setup()
 void loop() 
 {
   dis=obstEcho()*spedSound/2;   
-  Serial.print("*X");
-  Serial.print(dis);        //displaying distance of nearest obstacle on the control device
-  Serial.print("*");
-
-  while (dis<=maxObst)        //obstacle avoidance feature
+  Serial.print("*X"+String(dis)+"*");    //displaying distance of nearest obstacle on the control device
+  
+  if (abs(dis)<=maxObst)        //obstacle avoidance feature
   {
-    Serial.print("*A*");      //sending an alarming signal to control device
-    if(lineTrc==0)          //if line tracker mode is active the car will stop at obstacles else it will change its direction
-    {
-    moveCar(0,digiturn);    //turn right
-    }
-  else
-  {
+    Serial.print("*AR255G0B0*");      //sending an alarming signal to control device
     moveCar(0,0);
-  }
-    dis=obstEcho()*spedSound/2;
-  if(dis>maxObst)Serial.print("*A*");     //turning off the alarm signal before exiting the loop
+    while(abs(dis)<=maxObst)
+    {
+      if(lineTrc==0)          //if line tracker mode is active the car will stop at obstacles else it will change its direction
+      {
+        moveCar(0,digiturn);    //turn right
+        delay(500);             //for half a second
+        moveCar(0,0);           //stop 
+      }
+      else
+      {
+        moveCar(0,0);
+      }
+      dis=obstEcho()*spedSound/2;
+      Serial.print("*X"+String(dis)+"*");
+      if(dis>maxObst)Serial.print("*AR0G0B0*");     //turning off the alarm signal before exiting the loop
+    }
   }
   
   if (lineTrc==1)               //line tracker mode
@@ -332,4 +343,3 @@ void loop()
   
 
 }
-
