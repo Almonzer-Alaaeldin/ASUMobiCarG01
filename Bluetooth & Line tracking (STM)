@@ -1,0 +1,205 @@
+///////////////////////////////////////////Easy Driving Using Bluetooth Module & Line Tracking/////////////////////////////////////////
+char C;
+#include "stm32f10x.h"
+#include "stm32f10x_rcc.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_usart.h"
+#include <string.h>
+
+// Section 0: Defenitions and tuning
+
+void PWM_Init(void);
+void USART_Init(void);
+void LED_init(void);
+void USART2_PutChar(char c);
+void USART2_PutString(char *s);
+int PWMO_CH1_TIM2(int byte_Speed);
+uint16_t USART2_GetChar(void);
+#define USE GPIO_Pin_10;
+#define MLS GPIO_Pin_11;
+#define LS  GPIO_Pin_12;
+#define CS  GPIO_Pin_13;
+#define RS  GPIO_Pin_14;
+#define MRS GPIO_Pin_15;
+#define UST GPIO_Pin_0;
+// Section : Main Loop
+int main(void)
+{
+	PWM_Init();
+	USART_Init();
+	LED_init();
+
+	while (1)
+	{
+		// Read received char//ERROR: can't evaluate
+	 C = USART2_GetChar();
+	}
+}
+
+// Section 2: Function Defenitions
+  
+	// 2-A: General Pins Configurations
+	
+void LED_init()
+{
+ 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
+	
+	// UltraSonic Echo and Line Tracker Pins
+	GPIO_InitTypeDef TRckSC;
+	GPIO_InitTypeDef USC;
+  
+	//  B3 Not Functional
+  // 5V	Tolerent  B4 B10 B11 B12 B13 B14 B15
+	TRckSC.GPIO_Pin = GPIO_Pin_10|GPIO_Pin_11|GPIO_Pin_12|GPIO_Pin_13|GPIO_Pin_14|GPIO_Pin_15;
+	
+	// All Previous Pins are Inputs Floating (Might Change!!!!!) 
+	TRckSC.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	
+	// Any Speed is good 
+	TRckSC.GPIO_Speed = GPIO_Speed_2MHz;
+	
+	// Apply Changes to struct 
+	GPIO_Init(GPIOB, &TRckSC); 
+
+	// Ultrasonic's trigger pin B1
+	USC.GPIO_Mode=GPIO_Mode_Out_PP;
+  USC.GPIO_Pin=GPIO_Pin_1;
+	GPIO_Init(GPIOB,&USC);
+}
+
+  // 2-B: Bluetooth USART Configurations
+		
+		// USART2 was chosen
+void USART_Init()
+{
+	// structure Initialization
+	
+	USART_InitTypeDef USART2_Init;
+	GPIO_InitTypeDef GPIOA_Init;
+	
+	// USART2 initialization
+	
+    // Initialize USART2 clock
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+	 
+		//  Set Baud Rate 
+	USART2_Init.USART_BaudRate = 9600;
+
+		//	Not Needed
+	USART2_Init.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+		
+		//	Set Transmit and Recieve Pins 	
+	USART2_Init.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+		
+		//  Not Needed
+	USART2_Init.USART_Parity = USART_Parity_No;
+		
+		//	Set 1 stop bit
+	USART2_Init.USART_StopBits = USART_StopBits_1;
+		
+		//  Set transmited or recieved word to a byte of data
+	USART2_Init.USART_WordLength = USART_WordLength_8b;
+		
+		//	Apply changes to Struct
+	USART_Init(USART2, &USART2_Init);
+		
+		//	Turn on USART2
+	USART_Cmd(USART2, ENABLE);
+	
+	// GPIO initialization for Tx and Rx pins
+		
+		//Initialize GPIOA Clock
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+	
+	  // Tx pin initialization as push-pull alternate function
+	GPIOA_Init.GPIO_Pin = GPIO_Pin_2;
+	GPIOA_Init.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIOA_Init.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOA, &GPIOA_Init);
+	  
+		// Rx pin initialization as input pull down 
+	GPIOA_Init.GPIO_Pin = GPIO_Pin_3;
+	GPIOA_Init.GPIO_Mode = GPIO_Mode_IPD;
+	GPIOA_Init.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOA, &GPIOA_Init);
+}
+	// 2-C: Put Character to be transmited  
+  void USART2_PutChar(char c)
+{
+	// Wait until transmit data register is empty
+	while (!USART_GetFlagStatus(USART2, USART_FLAG_TXE));
+	
+	// Send a char using USART2 Tx
+	USART_SendData(USART2, c);
+}
+
+	// 2-D: Transmit Array of Characters 
+
+void USART2_PutString(char *s)
+{
+	while (*s)
+	{
+		USART2_PutChar(*s++);
+	}
+}
+
+	// 2-E: Recive a Character
+uint16_t USART2_GetChar()
+{
+	// Wait until data is received
+	while (!USART_GetFlagStatus(USART2, USART_FLAG_RXNE));
+	// Read received char
+	return USART_ReceiveData(USART2);
+}
+// 2-F: PWM Timer configuration
+
+void PWM_Init()
+{
+	// PWM Pin
+	GPIO_InitTypeDef PWM;
+	
+	// Tim struct initialization
+	TIM_TimeBaseInitTypeDef TIM_Init;
+	
+	//Tim OC struct initialization
+	TIM_OCInitTypeDef TIM_OC_Init;
+	
+	// Tim2 clock initialization 
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+	
+	TIM_Init.TIM_Prescaler = 10;
+	
+	// Frquency
+	TIM_Init.TIM_Period = 7199; 
+	
+	TIM_Init.TIM_ClockDivision = TIM_CKD_DIV1;
+	TIM_Init.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM2, &TIM_Init);
+	
+	TIM_Cmd(TIM2, ENABLE);
+	
+	TIM_OC_Init.TIM_OCMode = TIM_OCMode_PWM1;
+	TIM_OC_Init.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OC_Init.TIM_OCPolarity = TIM_OCPolarity_High;
+	TIM_OC_Init.TIM_Pulse = 0;
+	
+	TIM_OC1Init(TIM2, &TIM_OC_Init);
+	
+	TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Enable);
+	
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+	
+	PWM.GPIO_Pin = GPIO_Pin_0;
+	PWM.GPIO_Mode = GPIO_Mode_AF_PP;
+	PWM.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOA, &PWM);
+}
+// 2-G: Speed mapping and application 
+int PWMO_CH1_TIM2(int byte_Speed){
+	
+	// To facilitate the use for arduino users
+  int Speed=(7199/255)*byte_Speed;
+	
+	// Apply PWM value
+	TIM2->CCR1 = Speed;
+}
