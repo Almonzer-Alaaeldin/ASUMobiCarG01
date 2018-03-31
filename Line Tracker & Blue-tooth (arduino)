@@ -16,11 +16,11 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 #define trigUltra    8     //ultra sonic module trigger pin
 #define echoUltra    9     //ultra sonic module echo pin
 
-#define lineTrcVL     10      //the very left //we can use analog pins as digital pins by using numbers from 14-19
-#define lineTrcL      11      //the left 
-#define lineTrcM      12      //the middle line track sensor
-#define lineTrcR      13      //the right 
-#define lineTrcVR     19      //the very right
+#define lineTrcVL     19      //the very left //we can use analog pins as digital pins by using numbers from 14-19
+#define lineTrcL      10      //the left 
+#define lineTrcM      11      //the middle line track sensor
+#define lineTrcR      12      //the right 
+#define lineTrcVR     13      //the very right
 
 #define Battery1       3
 #define Battery2       2
