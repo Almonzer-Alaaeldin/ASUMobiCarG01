@@ -6,12 +6,12 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 #define digisped  80
 #define digiturn  80    //for keypad speed and turning
 
-#define LmotorFor    4     //IN1       l298n   motor drive module
-#define LmotorBac    7     //IN2
-#define LmotorSpe    6     //EN1          
-#define RmotorFor    2     //IN3
-#define RmotorBac    3     //IN4
-#define RmotorSpe    5     //EN2
+#define LmotorFor       2  //IN1       l298n   motor drive module
+#define LmotorBac       3  //IN2
+#define LmotorSpe       5  //EN1          
+#define RmotorFor       4  //IN3
+#define RmotorBac       7  //IN4
+#define RmotorSpe       6  //EN2
 
 #define trigUltra    8     //ultra sonic module trigger pin
 #define echoUltra    9     //ultra sonic module echo pin
@@ -31,7 +31,7 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 int mov=0 , trn=0 ; //for movement
 int dis=0  ; //for ultrasonic sensor
 char reading=0 ;  //for blue-tooth readings
-bool lineTrc =0 ;  //flag for the line tracker mode
+bool lineTrc =0 , allow=0 ;  //flag for the line tracker mode
 bool sharpRightSens , sharpLeftSens , normRightSens , normLeftSens , middleSens;
 int lineTrcTurn=0 , turnWeight=0 , lastTurn=0;
 int P=0 , I=0 , D=0 ;   //using the PID method to increase efficiency of line tracking
@@ -232,7 +232,8 @@ void loop()
     turnValue=(P*Pweight)+(I*Iweight)+(D*Dweight);    //finally the turning value which will control the response of the car is the sum of all values
     lastTurn=turnWeight;                //each multiplied by their respective weights
     turnValue=constrain(turnValue,-100,100);
-    moveCar(-1*lineTrcSpe,turnValue);
+    if(allow==HIGH)
+	{moveCar(-1*lineTrcSpe,turnValue);}
 
     Serial.print("*p");
     Serial.print(P);  //displaying current P on the control device
@@ -329,30 +330,39 @@ void loop()
         lineTrc=0;
         moveCar(0,0);
         break;
+		
+		case 'A':
+        allow=HIGH;
+        break;
+		
+		case 'a':
+        moveCar(0,0);
+		allow=LOW;
+        break;
 
         case 'P':       //for tuning Pweight on the fly
-        Pweight=Serial.read();
+        Pweight=Serial.parseFloat();
         Serial.print("*P");
         Serial.print(Pweight);  //displaying current Pweight on the control device
         Serial.print("*");
         break;
 
         case 'I':       //for tuning Iweight on the fly
-        Iweight=Serial.read();
+        Iweight=Serial.parseFloat();
         Serial.print("*I");
         Serial.print(Iweight);  //displaying current Iweight on the control device
         Serial.print("*");
         break;
 
         case 'D':       //for tuning Dweight on the fly
-        Dweight=Serial.read();
+        Dweight=Serial.parseFloat();
         Serial.print("*D");
         Serial.print(Dweight);  //displaying current Dweight on the control device
         Serial.print("*");
         break;
 
         case 's':       //for tuning speed on the fly
-        lineTrcSpe=Serial.read();
+        lineTrcSpe=Serial.parseFloat();
         lineTrcSpe=constrain(lineTrcSpe,-100,100);
         Serial.print("*S");
         Serial.print(lineTrcSpe); //displaying current speed on the control device
