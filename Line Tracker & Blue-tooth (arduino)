@@ -31,7 +31,7 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 int mov=0 , trn=0 ; //for movement
 int dis=0  ; //for ultrasonic sensor
 char reading=0 ;  //for blue-tooth readings
-bool lineTrc =0 , allow=0 ;  //flag for the line tracker mode
+bool lineTrc =0 , allow=0  , allowObst=0;  //flag for the line tracker mode , allowing movement , allowing obstacle avoidance
 bool sharpRightSens , sharpLeftSens , normRightSens , normLeftSens , middleSens;
 int lineTrcTurn=0 , turnWeight=0 , lastTurn=0;
 int P=0 , I=0 , D=0 ;   //using the PID method to increase efficiency of line tracking
@@ -146,7 +146,7 @@ void loop()
   dis=obstEcho()*spedSound/2;   
   Serial.print("*X"+String(dis)+"*");    //displaying distance of nearest obstacle on the control device
   
-  if (abs(dis)<=maxObst)        //obstacle avoidance feature
+  if (abs(dis)<=maxObst&&allowObst==HIGH)        //obstacle avoidance feature
   {
     Serial.print("*AR255G0B0*");      //sending an alarming signal to control device
     moveCar(0,0);
@@ -316,7 +316,15 @@ void loop()
         Serial.print(lineTrcSpe); //displaying current speed on the control device
         Serial.print("*");
         break;
-
+		
+		case 'O':       //for  turning on obstacle avoidance
+        allowObst=HIGH;
+        break;
+	
+		case 'o':       //for  turning off obstacle avoidance
+        allowObst=LOW;
+        break;
+		
         default :
         moveCar(0,0);
         break;
@@ -329,6 +337,9 @@ void loop()
         case 'c':
         lineTrc=0;
         moveCar(0,0);
+		P=0;
+		I=0;
+		D=0;
         break;
 		
 		case 'A':
@@ -340,6 +351,12 @@ void loop()
 		allow=LOW;
         break;
 
+		case 'r':       //for  resetting values
+        P=0;
+		I=0;
+		D=0;
+        break;
+		
         case 'P':       //for tuning Pweight on the fly
         Pweight=Serial.parseFloat();
         Serial.print("*P");
@@ -362,7 +379,7 @@ void loop()
         break;
 
         case 's':       //for tuning speed on the fly
-        lineTrcSpe=Serial.parseFloat();
+        lineTrcSpe=Serial.parseInt();
         lineTrcSpe=constrain(lineTrcSpe,-100,100);
         Serial.print("*S");
         Serial.print(lineTrcSpe); //displaying current speed on the control device
