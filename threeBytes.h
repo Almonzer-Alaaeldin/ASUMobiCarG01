@@ -12,14 +12,14 @@
 class threeBytes
 {
   public:
-    Morse(float value);
-		Morse();
-		float aquire();
-		void store(float instruction);
+  	Morse(float value);
+	Morse();
+	float aquire();
+	void store(float instruction);
   private:
-    byte Byte1;
-		byte Byte2;
-		byte Byte3;
+	byte Byte1;
+	byte Byte2;
+	byte Byte3;
 };
 
 #endif
