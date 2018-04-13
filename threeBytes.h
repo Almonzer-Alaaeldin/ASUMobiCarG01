@@ -12,10 +12,10 @@
 class threeBytes
 {
   public:
-  	threeBytes(float instruction);
+	threeBytes(long value);
 	threeBytes();
-	float aquire();
-	void store(float instruction);
+	long aquire();
+	bool store(long instruction);
   private:
 	byte Byte1;
 	byte Byte2;
