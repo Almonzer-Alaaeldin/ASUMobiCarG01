@@ -12,7 +12,7 @@
 class threeBytes
 {
   public:
-	threeBytes(long value);
+	threeBytes(long instruction);
 	threeBytes();
 	long aquire();
 	bool store(long instruction);
