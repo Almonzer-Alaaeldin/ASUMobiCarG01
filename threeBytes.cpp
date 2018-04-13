@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include "threeByte.h"
 
-threeByte::threeByte(long value)
+threeByte::threeByte(long instruction)
 {
   if(instruction>=16000000)
 	{
