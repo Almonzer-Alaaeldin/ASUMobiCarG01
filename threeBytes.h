@@ -12,8 +12,8 @@
 class threeBytes
 {
   public:
-  	Morse(float value);
-	Morse();
+  	threeBytes(float instruction);
+	threeBytes();
 	float aquire();
 	void store(float instruction);
   private:
