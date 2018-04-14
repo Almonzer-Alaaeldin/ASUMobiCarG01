@@ -90,27 +90,62 @@ char interpreter:: exchange(int opcode , bool &sign1 , bool &sign2)
 	return '\0';			//for error detection
 }
 
+interpreter::interpreter()
+{
+	code=0;
+	instruction='\0';
+	argument1=0;
+	argument2=0;
+}
+
+long interpreter::encode(char  inst , int  arg1 , int  arg2)
+{
+	bool sign1 , sign2;
+	if(arg1<0)
+	{
+		sign1=1;
+		arg1*=-1;
+	}
+	else
+	{
+		sign1=0;
+	}
+	if(arg2<0)
+	{
+		sign2=1;
+		arg2*=-1;
+	}
+	else
+	{
+		sign2=0;
+	}
+	
+	return exchange(inst,sign1,sign2)*1000000+arg1*1000+arg2;
+}
+
+bool interpreter::decode(long cod , char &inst , int &arg1 , int &arg2)
+{
+	bool sign1 , sign2;
+	int opcode=cod/1000000;
+	arg1=cod/1000%1000;
+	arg2=cod%1000;
+	inst=exchange(opcode,sign1,sign2);
+	if(inst=='\0')return 0;
+	if(sign1)arg1*=-1;
+	if(sign2)arg2*=-1;
+	return 1;
+}
+
 interpreter::interpreter(char  inst , int  arg1 , int  arg2)
 {
-	
+	instruction=inst;
+	argument1=arg1;
+	argument2=arg2;
+	code=encode(instruction,argument1,argument2);
 }
 
 interpreter::interpreter(long cod)
 {
-	
-}
-
-interpreter::interpreter()
-{
-	
-}
-
-bool interpreter::encode(char  inst , int  arg1 , int  arg2)
-{
-	
-}
-
-void interpreter::decode(char &inst , int &arg1 , int &arg2)
-{
-	
+	code=cod;
+	decode(code , instruction , argument1 , argument2);
 }
