@@ -1,5 +1,5 @@
-int lineTrcSpe=70;              //for the line tracker mode
-float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every value in PID method used in line tracker to be tunned
+int lineTrcSpe=43;              //for the line tracker mode
+float Pweight=6 , Iweight=0.02 , Dweight=27;   //These are the weights for every value in PID method used in line tracker to be tunned
 #define maxObst     9             //for tuning max obstacle distance in cm
 #define spedSound 0.0343           //speed of sound in cm/us
 
@@ -31,7 +31,7 @@ float Pweight=20 , Iweight=0 , Dweight=0;   //These are the weights for every va
 int mov=0 , trn=0 ; //for movement
 int dis=0  ; //for ultrasonic sensor
 char reading=0 ;  //for blue-tooth readings
-bool lineTrc =0 , allow=0  , allowObst=0;  //flag for the line tracker mode , allowing movement , allowing obstacle avoidance
+bool lineTrc =1  , accDrive=0 , allow=0   , allowObst=0;  //flag for modes , allowing movement , allowing obstacle avoidance
 bool sharpRightSens , sharpLeftSens , normRightSens , normLeftSens , middleSens;
 int lineTrcTurn=0 , turnWeight=0 , lastTurn=0;
 int P=0 , I=0 , D=0 ;   //using the PID method to increase efficiency of line tracking
@@ -118,25 +118,25 @@ void BatteryIndicate()
 }
 void setup() 
 {
- Serial.begin(38400);
- pinMode(LmotorFor,OUTPUT);
- pinMode(LmotorBac,OUTPUT);
- pinMode(LmotorSpe,OUTPUT);
- pinMode(RmotorFor,OUTPUT);
- pinMode(RmotorBac,OUTPUT);
- pinMode(RmotorSpe,OUTPUT);
+  Serial.begin(9600);
+  pinMode(LmotorFor,OUTPUT);
+  pinMode(LmotorBac,OUTPUT);
+  pinMode(LmotorSpe,OUTPUT);
+  pinMode(RmotorFor,OUTPUT);
+  pinMode(RmotorBac,OUTPUT);
+  pinMode(RmotorSpe,OUTPUT);
 
- pinMode(trigUltra,OUTPUT);
- pinMode(echoUltra,INPUT);
+  pinMode(trigUltra,OUTPUT);
+  pinMode(echoUltra,INPUT);
 
- pinMode(lineTrcVL,INPUT);
- pinMode(lineTrcL,INPUT);
- pinMode(lineTrcM,INPUT);
- pinMode(lineTrcR,INPUT);
- pinMode(lineTrcVR,INPUT);
- 
- pinMode(Battery1low,INPUT);
- pinMode(Battery2low,INPUT);
+  pinMode(lineTrcVL,INPUT);
+  pinMode(lineTrcL,INPUT);
+  pinMode(lineTrcM,INPUT);
+  pinMode(lineTrcR,INPUT);
+  pinMode(lineTrcVR,INPUT);
+
+  pinMode(Battery1low,INPUT);
+  pinMode(Battery2low,INPUT);
 
 }
 
@@ -145,7 +145,7 @@ void loop()
   BatteryIndicate();
   dis=obstEcho()*spedSound/2;   
   Serial.print("*X"+String(dis)+"*");    //displaying distance of nearest obstacle on the control device
-  
+
   if (abs(dis)<=maxObst&&allowObst==HIGH)        //obstacle avoidance feature
   {
     Serial.print("*AR255G0B0*");      //sending an alarming signal to control device
@@ -167,61 +167,61 @@ void loop()
       if(dis>maxObst)Serial.print("*AR0G0B0*");     //turning off the alarm signal before exiting the loop
     } 
   }
-  
+
   if (lineTrc==1)               //line tracker mode
   {
-    sharpLeftSens=digitalRead(lineTrcVL);
-    normLeftSens=!digitalRead(lineTrcL);    //middle three sensors are active low
-    middleSens=!digitalRead(lineTrcM);     //reading the sensors values
-    normRightSens=!digitalRead(lineTrcR);
-    sharpRightSens=digitalRead(lineTrcVR);
-        //treating the sensors readings as a binary value and converting into decimal
+    sharpLeftSens=!digitalRead(lineTrcVL);
+    normLeftSens=digitalRead(lineTrcL);    //middle three sensors are active low
+    middleSens=digitalRead(lineTrcM);     //reading the sensors values
+    normRightSens=digitalRead(lineTrcR);
+    sharpRightSens=!digitalRead(lineTrcVR);
+      //treating the sensors readings as a binary value and converting into decimal
     lineTrcTurn=sharpLeftSens*16+normLeftSens*8+middleSens*4+normRightSens*2+sharpRightSens;
     switch (lineTrcTurn)
     {
       case 1:                 //  0 0 0 0 1    ->    8
-      turnWeight=8;
+        turnWeight=8;
       break;
 
       case 3:                 //  0 0 0 1 1    ->   6
-      turnWeight=6;
+        turnWeight=6;
       break;
 
       case 2:                 //  0 0 0 1 0    ->   4
-      turnWeight=4;
+        turnWeight=4;
       break;
 
       case 6:                 //  0 0 1 1 0    ->   2
-      turnWeight=2;
+        turnWeight=2;
       break;
 
       case 4:                 //  0 0 1 0 0    ->   0
-      turnWeight=0;
+        turnWeight=0;
       break;
 
       case 12:                //  0 1 1 0 0    ->   -2
-      turnWeight=-2;
+        turnWeight=-2;
       break;
 
       case 8:                 //  0 1 0 0 0    ->   -4
-      turnWeight=-4;
+        turnWeight=-4;
       break;
 
       case 24:                //  1 1 0 0 0    ->   -6
-      turnWeight=-6;
+        turnWeight=-6;
       break;
 
       case 16:                //  1 0 0 0 0    ->   -8
-      turnWeight=-8;
+        turnWeight=-8;
       break;
 
       case 0:                 //  0 0 0 0 0    ->   {-9,-7,-5,-3,-1,1,3,5,7,9}(depend on previous state)(intermidiate values for thin tracks)
-      if(turnWeight==-4||(turnWeight!=4&&D<0))turnWeight-=1;      //if it was left turn more left
-      else if(turnWeight==4||D>0) turnWeight+=1;           //if it was right turn more right
+        if(turnWeight==-4||(turnWeight!=4&&D<0))turnWeight-=1;      //if it was left turn more left
+        else if(turnWeight==4||D>0) turnWeight+=1;           //if it was right turn more right
       break;
 
       default:
-      turnWeight=0;             // at conflict move straight
+        turnWeight=0;             // at conflict move straight
       break;
 
 
@@ -233,7 +233,7 @@ void loop()
     lastTurn=turnWeight;                //each multiplied by their respective weights
     turnValue=constrain(turnValue,-100,100);
     if(allow==HIGH)
-	{moveCar(-1*lineTrcSpe,turnValue);}
+    {moveCar(-1*lineTrcSpe,turnValue);}
 
     Serial.print("*p");
     Serial.print(P);  //displaying current P on the control device
@@ -250,145 +250,166 @@ void loop()
   if (Serial.available()>0)     //blue-tooth mode
   {
     reading=Serial.read();
-    if(lineTrc==0)
+    if(lineTrc==0&&accDrive==0)
     {
       switch (reading)
       {
         case 'X' :    //the analog pad reading send   X....Y....
-        trn=Serial.parseInt();
-        reading=Serial.read();
-        if(reading=='Y')
-        {
-          mov=Serial.parseInt();
-          moveCar(mov,trn);
-        }
+          trn=Serial.parseInt();
+          reading=Serial.read();
+          if(reading=='Y')
+          {
+            mov=Serial.parseInt();
+            moveCar(mov,trn);
+          }
         break;
 
         case 'N' :    //keypad button up
-        moveCar(-1*digisped,0);
+          moveCar(-1*digisped,0);
         break;
 
         case 'S' :    //keypad button down
-        moveCar(digisped,0);
+          moveCar(digisped,0);
         break;
 
         case 'E' :    //keypad button right
-        moveCar(0,digiturn);
+          moveCar(0,digiturn);
         break;
 
         case 'W' :    //keypad button left
-        moveCar(0,-1*digiturn);
+          moveCar(0,-1*digiturn);
         break;
 
         case 'R' :    //keypad button up right
-        moveCar(-1*digisped,digiturn);
+          moveCar(-1*digisped,digiturn);
         break;
 
         case 'L' :    //keypad button up left
-        moveCar(-1*digisped,-1*digiturn);
+          moveCar(-1*digisped,-1*digiturn);
         break;
 
         case 'A' :    //keypad button down right 
-        moveCar(digisped,digiturn);
+          moveCar(digisped,digiturn);
         break;
 
         case 'B' :    //keypad button down left 
-        moveCar(digisped,-1*digiturn);
+          moveCar(digisped,-1*digiturn);
         break;
 
         case 'M' :    //keypad button release and brake button
-        moveCar(0,0);
+          moveCar(0,0);
         break;
 
         case 'C' :    //line tracker activator
-        lineTrc=1;
-        moveCar(0,0);
-        Serial.print("*P");
-        Serial.print(Pweight);  //displaying current Pweight on the control device
-        Serial.print("*");
-        Serial.print("*I");
-        Serial.print(Iweight);  //displaying current Iweight on the control device
-        Serial.print("*");
-        Serial.print("*D");
-        Serial.print(Dweight);  //displaying current Dweight on the control device
-        Serial.print("*");
-        Serial.print("*S");
-        Serial.print(lineTrcSpe); //displaying current speed on the control device
-        Serial.print("*");
+          accDrive=0;
+          lineTrc=1;
+          moveCar(0,0);
+          Serial.print("*P");
+          Serial.print(Pweight);  //displaying current Pweight on the control device
+          Serial.print("*");
+          Serial.print("*I");
+          Serial.print(Iweight);  //displaying current Iweight on the control device
+          Serial.print("*");
+          Serial.print("*D");
+          Serial.print(Dweight);  //displaying current Dweight on the control device
+          Serial.print("*");
+          Serial.print("*S");
+          Serial.print(lineTrcSpe); //displaying current speed on the control device
+          Serial.print("*");
         break;
-		
-		case 'O':       //for  turning on obstacle avoidance
-        allowObst=HIGH;
+        
+        case 'O':       //for  turning on obstacle avoidance
+          allowObst=HIGH;
         break;
-	
-		case 'o':       //for  turning off obstacle avoidance
-        allowObst=LOW;
+      
+        case 'o':       //for  turning off obstacle avoidance
+          allowObst=LOW;
         break;
-		
+        
+        case 'Q' :    //Accurate driving mode
+          accDrive=1;
+          lineTrc=0;
+        break;
+        
         default :
-        moveCar(0,0);
+          moveCar(0,0);
         break;
       }
     }
-    else  
+    else if(lineTrc==1&&accDrive==0)
     {
       switch (reading)
       {
         case 'c':
-        lineTrc=0;
-        moveCar(0,0);
-		P=0;
-		I=0;
-		D=0;
+          lineTrc=0;
+          moveCar(0,0);
+          P=0;
+          I=0;
+          D=0;
         break;
-		
-		case 'A':
-        allow=HIGH;
+        
+        case 'Q' :    //Accurate driving mode
+          accDrive=1;
+          lineTrc=0;
         break;
-		
-		case 'a':
-        moveCar(0,0);
-		allow=LOW;
+        
+        case 'Z':
+          allow=HIGH;
+        break;
+        
+        case 'z':
+          moveCar(0,0);
+          allow=LOW;
         break;
 
-		case 'r':       //for  resetting values
-        P=0;
-		I=0;
-		D=0;
+        case 'r':       //for  resetting values
+          P=0;
+          I=0;
+          D=0;
         break;
-		
+        
         case 'P':       //for tuning Pweight on the fly
-        Pweight=Serial.parseFloat();
-        Serial.print("*P");
-        Serial.print(Pweight);  //displaying current Pweight on the control device
-        Serial.print("*");
+          Pweight=Serial.parseFloat();
+          Serial.print("*P");
+          Serial.print(Pweight);  //displaying current Pweight on the control device
+          Serial.print("*");
         break;
 
         case 'I':       //for tuning Iweight on the fly
-        Iweight=Serial.parseFloat();
-        Serial.print("*I");
-        Serial.print(Iweight);  //displaying current Iweight on the control device
-        Serial.print("*");
+          Iweight=Serial.parseFloat();
+          Serial.print("*I");
+          Serial.print(Iweight);  //displaying current Iweight on the control device
+          Serial.print("*");
         break;
 
         case 'D':       //for tuning Dweight on the fly
-        Dweight=Serial.parseFloat();
-        Serial.print("*D");
-        Serial.print(Dweight);  //displaying current Dweight on the control device
-        Serial.print("*");
+          Dweight=Serial.parseFloat();
+          Serial.print("*D");
+          Serial.print(Dweight);  //displaying current Dweight on the control device
+          Serial.print("*");
         break;
 
         case 's':       //for tuning speed on the fly
-        lineTrcSpe=Serial.parseInt();
-        lineTrcSpe=constrain(lineTrcSpe,-100,100);
-        Serial.print("*S");
-        Serial.print(lineTrcSpe); //displaying current speed on the control device
-        Serial.print("*");
+          lineTrcSpe=Serial.parseInt();
+          lineTrcSpe=constrain(lineTrcSpe,-100,100);
+          Serial.print("*S");
+          Serial.print(lineTrcSpe); //displaying current speed on the control device
+          Serial.print("*");
         break;
       }
 
     }
-
+    else if(accDrive==1&&lineTrc==0)
+    {
+      switch (reading)
+      {
+        case 'L' :
+          
+        break;
+      }
+    }
+    
+    
   }
 
 }
