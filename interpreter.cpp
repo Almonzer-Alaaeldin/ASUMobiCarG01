@@ -100,6 +100,9 @@ interpreter::interpreter()
 
 long interpreter::encode(char  inst , int  arg1 , int  arg2)
 {
+	instruction =inst;
+	argument1=arg1;
+	argument2=arg2;
 	bool sign1 , sign2;
 	if(arg1<0)
 	{
@@ -119,20 +122,24 @@ long interpreter::encode(char  inst , int  arg1 , int  arg2)
 	{
 		sign2=0;
 	}
-	
-	return exchange(inst,sign1,sign2)*1000000+arg1*1000+arg2;
+	code=exchange(inst,sign1,sign2)*1000000+arg1*1000+arg2;
+	return code;
 }
 
 bool interpreter::decode(long cod , char &inst , int &arg1 , int &arg2)
 {
+	code = cod;
 	bool sign1 , sign2;
 	int opcode=cod/1000000;
 	arg1=cod/1000%1000;
 	arg2=cod%1000;
 	inst=exchange(opcode,sign1,sign2);
 	if(inst=='\0')return 0;
+	instruction=inst;
 	if(sign1)arg1*=-1;
 	if(sign2)arg2*=-1;
+	argument2=arg2;
+	argument1=arg1;
 	return 1;
 }
 
@@ -147,5 +154,77 @@ interpreter::interpreter(char  inst , int  arg1 , int  arg2)
 interpreter::interpreter(long cod)
 {
 	code=cod;
-	decode(code , instruction , argument1 , argument2);
+	char inst=instruction;
+	int arg1=argument1 , arg2=argument2;
+	decode(code , inst , arg1 , arg2);
+}
+
+long interpreter::encode()
+{
+	code=encode(instruction,argument1,argument2);
+	return code;
+}
+
+bool interpreter::decode()
+{
+	bool ret;
+	char inst=instruction;
+	int arg1=argument1 , arg2=argument2;
+	ret=decode(code , inst , arg1 , arg2);
+	return ret;
+	
+}
+
+long interpreter::getCode()
+{return code;}
+
+char interpreter::getInst()
+{return instruction;}
+
+int interpreter::getArg1()
+{return argument1;}
+
+int interpreter::getArg2()
+{return argument2;}
+
+bool interpreter::putCode(long cod)
+{
+	if (cod>=16000000)
+	{
+		code=0;
+		return 0;
+	}
+	code=cod;
+	return 1;
+}
+
+bool interpreter::putInst(char inst)
+{
+	if (!(inst=='L'||inst=='A'||inst=='R'||inst=='S'||inst=='B'))
+	{
+		instruction='\0';
+		
+	}
+}
+
+bool interpreter::putArg1(int arg1)
+{
+	if (arg1>=1000||arg1<+-1000)
+	{
+		argument1=0;
+		return 0;
+	}
+	argument1=arg1;
+	return 1;
+}
+
+bool interpreter::putArg2(int arg2)
+{
+	if (arg2>=1000||arg2<+-1000)
+	{
+		argument2=0;
+		return 0;
+	}
+	argument2=arg2;
+	return 1;
 }
