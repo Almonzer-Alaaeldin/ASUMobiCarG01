@@ -3,8 +3,8 @@ float Pweight=6 , Iweight=0.02 , Dweight=27;   //These are the weights for every
 #define maxObst     9             //for tuning max obstacle distance in cm
 #define spedSound 0.0343           //speed of sound in cm/us
 
-#define digisped  80
-#define digiturn  80    //for keypad speed and turning
+int  digisped=80;    //for keypad speed and turning
+bool reverseDirections=0;   
 
 #define LmotorFor       2  //IN1       l298n   motor drive module
 #define LmotorBac       3  //IN2
@@ -32,7 +32,6 @@ int mov=0 , trn=0 ; //for movement
 int dis=0  ; //for ultrasonic sensor
 char reading=0 ;  //for blue-tooth readings
 bool lineTrc =1  , accDrive=0 , allow=0   , allowObst=0;  //flag for modes , allowing movement , allowing obstacle avoidance
-bool sharpRightSens , sharpLeftSens , normRightSens , normLeftSens , middleSens;
 int lineTrcTurn=0 , turnWeight=0 , lastTurn=0;
 int P=0 , I=0 , D=0 ;   //using the PID method to increase efficiency of line tracking
 float  turnValue=0;     
@@ -40,7 +39,12 @@ int BatteryLevel1,BatteryLevel2 , Battery , col;        //Batteries ,   col=>ind
 bool Bat1 , Bat2;
 
 void moveCar(int movement , int turning) //takes percentage of movement and turning the analog stick is reversed in the y direction in the app, up is negative and down is positive
-{                                       //positive for backward movement and right turning  negative for forward movement and left turning
+{  
+	if(reverseDirections)
+  {
+    movement*=-1;
+    if(movement!=0)turning*=-1;
+  }                                     //positive for backward movement and right turning  negative for forward movement and left turning
   if(movement==0&&turning==0)
   {
     digitalWrite(LmotorFor,LOW);
@@ -154,7 +158,7 @@ void loop()
     {
       if(lineTrc==0)          //if line tracker mode is active the car will stop at obstacles else it will change its direction
       {
-        moveCar(0,digiturn);    //turn right
+        moveCar(0,digisped);    //turn right
         delay(500);             //for half a second
         moveCar(0,0);           //stop 
       }
@@ -170,13 +174,9 @@ void loop()
 
   if (lineTrc==1)               //line tracker mode
   {
-    sharpLeftSens=!digitalRead(lineTrcVL);
-    normLeftSens=digitalRead(lineTrcL);    //middle three sensors are active low
-    middleSens=digitalRead(lineTrcM);     //reading the sensors values
-    normRightSens=digitalRead(lineTrcR);
-    sharpRightSens=!digitalRead(lineTrcVR);
+    
       //treating the sensors readings as a binary value and converting into decimal
-    lineTrcTurn=sharpLeftSens*16+normLeftSens*8+middleSens*4+normRightSens*2+sharpRightSens;
+    lineTrcTurn=(!digitalRead(lineTrcVL))*16+(digitalRead(lineTrcL))*8+(digitalRead(lineTrcM))*4+(digitalRead(lineTrcR))*2+(!digitalRead(lineTrcVR));
     switch (lineTrcTurn)
     {
       case 1:                 //  0 0 0 0 1    ->    8
@@ -273,27 +273,27 @@ void loop()
         break;
 
         case 'E' :    //keypad button right
-          moveCar(0,digiturn);
+          moveCar(0,digisped);
         break;
 
         case 'W' :    //keypad button left
-          moveCar(0,-1*digiturn);
+          moveCar(0,-1*digisped);
         break;
 
         case 'R' :    //keypad button up right
-          moveCar(-1*digisped,digiturn);
+          moveCar(-1*digisped,digisped);
         break;
 
         case 'L' :    //keypad button up left
-          moveCar(-1*digisped,-1*digiturn);
+          moveCar(-1*digisped,-1*digisped);
         break;
 
         case 'A' :    //keypad button down right 
-          moveCar(digisped,digiturn);
+          moveCar(digisped,digisped);
         break;
 
         case 'B' :    //keypad button down left 
-          moveCar(digisped,-1*digiturn);
+          moveCar(digisped,-1*digisped);
         break;
 
         case 'M' :    //keypad button release and brake button
@@ -330,7 +330,20 @@ void loop()
           accDrive=1;
           lineTrc=0;
         break;
+				
+				case 'J':
+          digisped=Serial.parseInt();
+          Serial.print("*j"+String(digisped)+"*");
+        break;
         
+				case 'V' :    //Accurate driving mode
+          reverseDirections=1;
+        break;
+
+        case 'v' :    //Accurate driving mode
+          reverseDirections=0;
+        break;
+				
         default :
           moveCar(0,0);
         break;
