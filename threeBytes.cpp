@@ -1,13 +1,12 @@
 /*
-  threeBytes.cpp- Library for efficiently storing instructions mobiCar accurate driving .
+  threeBytes.cpp - Library for efficiently storing instructions mobiCar accurate driving .
   Created by Bassem Abdelwahab, April 13, 2018.
   Released on Github.
 */
 
-#include "Arduino.h"
-#include "threeByte.h"
+#include "threeBytes.h"
 
-threeByte::threeByte(long instruction)
+threeBytes::threeBytes(long instruction)
 {
   if(instruction>=16000000)
 	{
@@ -18,13 +17,13 @@ threeByte::threeByte(long instruction)
 	else
 	{
 		Byte3=instruction%256;
-		instruction/256;
+		instruction/=256;
 		Byte2=instruction%256;
-		instruction/256;
+		instruction/=256;
 		Byte1=instruction%256;
 	}
 }
-threeByte::threeByte()
+threeBytes::threeBytes()
 {
 	Byte1=0;
 	Byte2=0;
@@ -32,12 +31,12 @@ threeByte::threeByte()
 }
 
 
-long threeByte::aquire()
+long threeBytes::aquire()
 {
   return Byte1*256*256+Byte2*256+Byte3;
 }
 
-bool threeByte::store(long instruction)
+bool threeBytes::store(long instruction)
 {
 	if(instruction>=16000000)
 	{
@@ -46,9 +45,9 @@ bool threeByte::store(long instruction)
 	else
 	{
 	 Byte3=instruction%256;
-	 instruction/256;
+	 instruction/=256;
 	 Byte2=instruction%256;
-	 instruction/256;
+	 instruction/=256;
 	 Byte1=instruction%256;
 	}
 	return 1;
