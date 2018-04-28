@@ -1,4 +1,3 @@
-
 /*
   threeBytes.h - Library for efficiently storing instructions mobiCar accurate driving .
   Created by Bassem Abdelwahab, April 13, 2018.
@@ -7,7 +6,7 @@
 #ifndef threeBytes_h
 #define threeBytes_h
 
-#include "Arduino.h"
+
 
 class threeBytes
 {
@@ -17,9 +16,9 @@ class threeBytes
 	long aquire();
 	bool store(long instruction);
   private:
-	byte Byte1;
-	byte Byte2;
-	byte Byte3;
+	unsigned char Byte1;
+	unsigned char Byte2;
+	unsigned char Byte3;
 };
 
 #endif
