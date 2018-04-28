@@ -6,7 +6,7 @@
 #ifndef interpreter_h
 #define interpreter_h
 
-#include "Arduino.h"
+
 
 class interpreter
 {
