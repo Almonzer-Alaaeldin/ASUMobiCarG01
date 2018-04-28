@@ -3,7 +3,7 @@
   Created by Bassem Abdelwahab, April 13, 2018.
   Released on Github.
 */
-#include "Arduino.h"
+
 #include "interpreter.h"
 
 int interpreter:: exchange(char inst , bool sign1 , bool sign2)
