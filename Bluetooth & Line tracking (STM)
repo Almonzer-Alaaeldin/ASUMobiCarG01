@@ -21,6 +21,8 @@ void moveCar(int movement , int turning);
 int distance();
 uint16_t USART2_GetChar(void);
 int parseInt(char &zeyada);
+void PWMO_CH1_TIM2(int byte_Speed);
+void PWMO_CH1_TIM3(int byte_Speed);
 
 bool lineTrc=0 , allowMove=0;
 int mov=0 , trn=0;
@@ -47,108 +49,115 @@ int mov=0 , trn=0;
 
 // Section : Main Loop
 int main(void)
-{
-	
+{int k=0;
+	PWM_Init();
 	USART_Init();
 	LED_init();
-	
-	
-		
-	while (1)
-	{
-		char Hassanien;
-		// Read received char//ERROR: can't evaluate
-		
-		
-		
-		
-		
-		
-		Hassanien = USART2_GetChar();
-		if(lineTrc==0)
-		{
-		switch (Hassanien)
-		{
-			case 'X' :
-				trn=parseInt(Hassanien);
-			if(Hassanien=='Y')
-			{
-			mov=parseInt(Hassanien);
-				moveCar(mov,trn);
-			}
-				
-			break;
-			
-			case 'N' :
-				moveCar(-1*padSpeed,0);
-			break;
-			
-			case 'S' :
-				moveCar(padSpeed,0);
-			break;
-			
-			case 'E' :
-				moveCar(0,padTurn);
-			break;
-			
-			case 'W' :
-				moveCar(0,-1*padTurn);
-			break;
-			
-			case 'R' :
-				moveCar(-1*padSpeed,padTurn);
-			break;
-			
-			case 'L' :
-				moveCar(-1*padSpeed,-1*padTurn);
-			break;
-			
-			case 'A' :
-				moveCar(padSpeed,padTurn);
-			break;
-			
-			case 'B' :
-				moveCar(padSpeed,-1*padTurn);
-			break;
-			
-			case 'M' :
-				moveCar(0,0);
-			break;
-			
-			case 'C' :
-				allowMove=0;
-				lineTrc=1;
-			break;
-			
-			default :
-				moveCar(0,0);
-			break;
-		
-		} 	
-		}
-else
-{
-	switch (Hassanien)
-	{
-		case 'c':
-			lineTrc=0;
-		allowMove=0;
-		moveCar(0,0);
-		break;
-		
-		case 'A' :
-			allowMove=1;
-		break;
-		
-		case 'a' :
-			allowMove=0;
-		moveCar(0,0);
-		break;
-	
+	while(1){
+	for(k=0;k<7199;k++){
+	PWMO_CH1_TIM3(k);
+		PWMO_CH1_TIM2(k);98999999999999999
+		for(int ll=0;ll<610000;ll++);
 	}
+	for(k=7199;k>0;k--){
+	PWMO_CH1_TIM3(k);
+		PWMO_CH1_TIM2(k);
+		
+	}
+	for(int ll=0;ll<610000;ll++);
+	}
+	
+	
+		
+//	while (1)
+//	{
+//		char Hassanien;
+//		// Read received char//ERROR: can't evaluate
+//		Hassanien = USART2_GetChar();
+//		if(lineTrc==0)
+//		{
+//		switch (Hassanien)
+//		{
+//			case 'X' :
+//				trn=parseInt(Hassanien);
+//			if(Hassanien=='Y')
+//			{
+//			mov=parseInt(Hassanien);
+//				moveCar(mov,trn);
+//			}
+//				
+//			break;
+//			
+//			case 'N' :
+//				moveCar(-1*padSpeed,0);
+//			break;
+//			
+//			case 'S' :
+//				moveCar(padSpeed,0);
+//			break;
+//			
+//			case 'E' :
+//				moveCar(0,padTurn);
+//			break;
+//			
+//			case 'W' :
+//				moveCar(0,-1*padTurn);
+//			break;
+//			
+//			case 'R' :
+//				moveCar(-1*padSpeed,padTurn);
+//			break;
+//			
+//			case 'L' :
+//				moveCar(-1*padSpeed,-1*padTurn);
+//			break;
+//			
+//			case 'A' :
+//				moveCar(padSpeed,padTurn);
+//			break;
+//			
+//			case 'B' :
+//				moveCar(padSpeed,-1*padTurn);
+//			break;
+//			
+//			case 'M' :
+//				moveCar(0,0);
+//			break;
+//			
+//			case 'C' :
+//				allowMove=0;
+//				lineTrc=1;
+//			break;
+//			
+//			default :
+//				moveCar(0,0);
+//			break;
+//		
+//		} 	
+//		}
+//else
+//{
+//	switch (Hassanien)
+//	{
+//		case 'c':
+//			lineTrc=0;
+//		allowMove=0;
+//		moveCar(0,0);
+//		break;
+//		
+//		case 'A' :
+//			allowMove=1;
+//		break;
+//		
+//		case 'a' :
+//			allowMove=0;
+//		moveCar(0,0);
+//		break;
+//	
+//	}
 
-}	
-	}
+//}	
+//	}
 }
 
 // Section 2: Function Defenitions
@@ -159,11 +168,13 @@ void LED_init()
 {
  	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC,ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
 	
 	// UltraSonic Echo and Line Tracker Pins
 	GPIO_InitTypeDef TRckSC;
 	GPIO_InitTypeDef USC;
 	GPIO_InitTypeDef LED13;
+	GPIO_InitTypeDef Drive;
   
 	//  B3 Not Functional
   // 5V	Tolerent  B4 B10 B11 B12 B13 B14 B15
@@ -187,6 +198,9 @@ void LED_init()
 	LED13.GPIO_Mode =GPIO_Mode_Out_PP;
 	LED13.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOC, &LED13);
+	Drive.GPIO_Mode=GPIO_Mode_Out_PP;
+	Drive.GPIO_Pin=GPIO_Pin_11|GPIO_Pin_7|GPIO_Pin_5|GPIO_Pin_9;
+	GPIO_Init(GPIOA,&Drive);
 }
 
   // 2-B: Bluetooth USART Configurations
@@ -326,10 +340,10 @@ void PWM_Init()
 	//Tim OC struct initialization
 	TIM_OCInitTypeDef TIM_OC_Init1;
 	
-	// Tim2 clock initialization 
+	// Tim3 clock initialization 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 	
-	TIM_Init.TIM_Prescaler = 10;
+	TIM_Init1.TIM_Prescaler = 10;
 	
 	// Frquency
 	TIM_Init1.TIM_Period = 7199; 
