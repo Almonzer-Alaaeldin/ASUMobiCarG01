@@ -19,6 +19,8 @@ void USART2_PutString(char *s);
 void PWMO_CH1_TIM2(int byte_Speed);
 void moveCar(int movement , int turning);
 int distance();
+char * ReadUntil(char end);
+void delay(int ms);
 uint16_t USART2_GetChar(void);
 int parseInt(char &zeyada);
 void PWMO_CH1_TIM2(int byte_Speed);
@@ -49,121 +51,163 @@ int mov=0 , trn=0;
 
 // Section : Main Loop
 int main(void)
-{int k=0;
+{
+	//int k=0;
 	PWM_Init();
 	USART_Init();
 	LED_init();
-	while(1){
-	for(k=0;k<7199;k++){
-	PWMO_CH1_TIM3(k);
-		PWMO_CH1_TIM2(k);98999999999999999
-		for(int ll=0;ll<610000;ll++);
-	}
-	for(k=7199;k>0;k--){
-	PWMO_CH1_TIM3(k);
-		PWMO_CH1_TIM2(k);
-		
-	}
-	for(int ll=0;ll<610000;ll++);
-	}
-	
-	
-		
-//	while (1)
-//	{
-//		char Hassanien;
-//		// Read received char//ERROR: can't evaluate
-//		Hassanien = USART2_GetChar();
-//		if(lineTrc==0)
-//		{
-//		switch (Hassanien)
-//		{
-//			case 'X' :
-//				trn=parseInt(Hassanien);
-//			if(Hassanien=='Y')
-//			{
-//			mov=parseInt(Hassanien);
-//				moveCar(mov,trn);
-//			}
-//				
-//			break;
-//			
-//			case 'N' :
-//				moveCar(-1*padSpeed,0);
-//			break;
-//			
-//			case 'S' :
-//				moveCar(padSpeed,0);
-//			break;
-//			
-//			case 'E' :
-//				moveCar(0,padTurn);
-//			break;
-//			
-//			case 'W' :
-//				moveCar(0,-1*padTurn);
-//			break;
-//			
-//			case 'R' :
-//				moveCar(-1*padSpeed,padTurn);
-//			break;
-//			
-//			case 'L' :
-//				moveCar(-1*padSpeed,-1*padTurn);
-//			break;
-//			
-//			case 'A' :
-//				moveCar(padSpeed,padTurn);
-//			break;
-//			
-//			case 'B' :
-//				moveCar(padSpeed,-1*padTurn);
-//			break;
-//			
-//			case 'M' :
-//				moveCar(0,0);
-//			break;
-//			
-//			case 'C' :
-//				allowMove=0;
-//				lineTrc=1;
-//			break;
-//			
-//			default :
-//				moveCar(0,0);
-//			break;
+//	while(1){
+//	for(k=0;k<7199;k++){
+//	PWMO_CH1_TIM3(k);
+//		PWMO_CH1_TIM2(k);
+//		for(int ll=0;ll<610000;ll++);
+//	}
+//	for(k=7199;k>0;k--){
+//	PWMO_CH1_TIM3(k);
+//		PWMO_CH1_TIM2(k);
 //		
-//		} 	
-//		}
-//else
-//{
-//	switch (Hassanien)
-//	{
-//		case 'c':
-//			lineTrc=0;
-//		allowMove=0;
-//		moveCar(0,0);
-//		break;
-//		
-//		case 'A' :
-//			allowMove=1;
-//		break;
-//		
-//		case 'a' :
-//			allowMove=0;
-//		moveCar(0,0);
-//		break;
+//	}
+//	for(int ll=0;ll<610000;ll++);
+//	}
+//	while(1)
+//{char X=USART2_GetChar();
+//	if(X=='S'){
+//GPIO_SetBits(GPIOC,GPIO_Pin_13);
+//	}else if(X=='R'){
 //	
+//	GPIO_ResetBits(GPIOC,GPIO_Pin_13);
 //	}
 
-//}	
-//	}
+//}
+//	
+		
+	while (1)
+	{
+		char Hassanien;
+		// Read received char//ERROR: can't evaluate
+		Hassanien = USART2_GetChar();
+		if(lineTrc==0)
+		{
+		switch (Hassanien)
+		{
+			case 'X' :
+				trn=parseInt(Hassanien);
+			if(Hassanien=='Y')
+			{
+			  mov=parseInt(Hassanien);
+				moveCar(mov,trn);
+			}
+				
+			break;
+			
+			case 'N' :
+				moveCar(-1*padSpeed,0);
+			break;
+			
+			case 'S' :
+				moveCar(padSpeed,0);
+			break;
+			
+			case 'E' :
+				moveCar(0,padTurn);
+			break;
+			
+			case 'W' :
+				moveCar(0,-1*padTurn);
+			break;
+			
+			case 'R' :
+				moveCar(-1*padSpeed,padTurn);
+			break;
+			
+			case 'L' :
+				moveCar(-1*padSpeed,-1*padTurn);
+			break;
+			
+			case 'A' :
+				moveCar(padSpeed,padTurn);
+			break;
+			
+			case 'B' :
+				moveCar(padSpeed,-1*padTurn);
+			break;
+			
+			case 'M' :
+				moveCar(0,0);
+			break;
+			
+			case 'C' :
+				allowMove=0;
+				lineTrc=1;
+			break;
+			
+			default :
+				moveCar(0,0);
+			break;
+		
+		} 	
+		}
+else
+{
+	switch (Hassanien)
+	{
+		case 'c':
+			lineTrc=0;
+		allowMove=0;
+		moveCar(0,0);
+		break;
+		
+		case 'A' :
+			allowMove=1;
+		break;
+		
+		case 'a' :
+			allowMove=0;
+		moveCar(0,0);
+		break;
+	
+	}
+
+}	
+	}
 }
 
 // Section 2: Function Defenitions
   
 	// 2-A: General Pins Configurations
+char * ReadUntil(char end)
+{
+	int i=0;
+	char check;
+	char * string;
 	
+	while(1)
+{
+	check=USART2_GetChar();
+	if(check!=end)break;
+	string[i]=check;
+	i++;
+}
+
+return string;
+}
+int distance()
+{	int itr=0,ms=0;
+	GPIO_ResetBits(GPIOB,UST);
+	for(int q=0;q<11;q++);
+	GPIO_SetBits(GPIOB,UST);
+	for(int q=0;q<54;q++);
+	GPIO_ResetBits(GPIOB,UST);
+	for(int l=0;l<6540400;l++){
+	if(GPIO_ReadInputDataBit(GPIOB,USE)){itr=l;break;}
+	}
+	ms=(itr*1000)/6540400;
+	return (343*(ms/1000));
+}
+void delay(int ms)
+{ int itr=(ms*6540400)/1000;
+	for(int q=0;q<itr;q++);
+}
 void LED_init()
 {
  	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
@@ -189,7 +233,7 @@ void LED_init()
 	// Apply Changes to struct 
 	GPIO_Init(GPIOB, &TRckSC); 
 
-	// Ultrasonic's trigger pin B1
+	// Ultrasonic's trigger pin B0
 	USC.GPIO_Mode=GPIO_Mode_Out_PP;
   USC.GPIO_Pin=GPIO_Pin_0|GPIO_Pin_1;
 	GPIO_Init(GPIOB,&USC);
@@ -256,7 +300,7 @@ void USART_Init()
 	  
 		// Rx pin initialization as input pull down 
 	GPIOA_Init.GPIO_Pin = GPIO_Pin_3;
-	GPIOA_Init.GPIO_Mode = GPIO_Mode_IPD;
+	GPIOA_Init.GPIO_Mode = GPIO_Mode_IPU;
 	GPIOA_Init.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOA, &GPIOA_Init);
 }
@@ -433,28 +477,6 @@ GPIO_ResetBits(GPIOA,IN3);
 PWMO_CH1_TIM2(right);
 PWMO_CH1_TIM3(left);
 
-}
-
-int distance()
-{
-	GPIO_ResetBits(GPIOB,UST);
-	for(int i =0 ; i<222 ; i++){}			//2 microseconds
-	GPIO_SetBits(GPIOB,UST);
-	for(int i =0 ; i<1000 ; i++) {}		// 10 microseconds
-	GPIO_ResetBits(GPIOB,UST);
-	int i=0;
-		while(i<99999999)					//max distance (time) the US module can detect
-		{
-		if(GPIO_ReadInputDataBit(GPIOB , USE)==1)break;
-		}
-		if(i==99999999) return -1;
-
-			else
-			{
-			int time=i/111;				//1 microsecond
-			return 0.0343*time/2;
-			
-			}
 }
 
 int parseInt(char &zeyada)
