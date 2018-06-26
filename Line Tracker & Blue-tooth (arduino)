@@ -1,10 +1,13 @@
+#include <interpreter.h>
+#include <threeBytes.h>
+
 int lineTrcSpe=43;              //for the line tracker mode
 float Pweight=6 , Iweight=0.02 , Dweight=27;   //These are the weights for every value in PID method used in line tracker to be tunned
 #define maxObst     9             //for tuning max obstacle distance in cm
 #define spedSound 0.0343           //speed of sound in cm/us
 
 int  digisped=80;    //for keypad speed and turning
-bool reverseDirections=0;   
+bool reverseDirections=0;    
 
 #define LmotorFor       2  //IN1       l298n   motor drive module
 #define LmotorBac       3  //IN2
@@ -13,34 +16,42 @@ bool reverseDirections=0;
 #define RmotorBac       7  //IN4
 #define RmotorSpe       6  //EN2
 
-#define trigUltra    8     //ultra sonic module trigger pin
-#define echoUltra    9     //ultra sonic module echo pin
+#define trigUltra       8  //ultra sonic module trigger pin
+#define echoUltra       9  //ultra sonic module echo pin
 
-#define lineTrcVL     19      //the very left //we can use analog pins as digital pins by using numbers from 14-19
-#define lineTrcL      10      //the left 
-#define lineTrcM      11      //the middle line track sensor
-#define lineTrcR      12      //the right 
-#define lineTrcVR     13      //the very right
+#define phot_ntrpt_l   18  
+#define phot_ntrpt_r   17
 
-#define Battery1       3
-#define Battery2       2
-#define Battery1low    18  
-#define Battery2low    15
-#define BatteryAll     0    
+#define lineTrcVL      19      //the very left //we can use analog pins as digital pins by using numbers from 14-19
+#define lineTrcL       10      //the left 
+#define lineTrcM       11      //the middle line track sensor
+#define lineTrcR       12      //the right 
+#define lineTrcVR      13      //the very right
+
+#define Battery1        0
+#define Battery2        1
+#define BatteryAll      2    
 
 int mov=0 , trn=0 ; //for movement
 int dis=0  ; //for ultrasonic sensor
 char reading=0 ;  //for blue-tooth readings
-bool lineTrc =1  , accDrive=0 , allow=0   , allowObst=0;  //flag for modes , allowing movement , allowing obstacle avoidance
+bool lineTrc =0  , accDrive=1 , allow=0   , allowObst=0;  //flag for modes , allowing movement , allowing obstacle avoidance
 int lineTrcTurn=0 , turnWeight=0 , lastTurn=0;
 int P=0 , I=0 , D=0 ;   //using the PID method to increase efficiency of line tracking
 float  turnValue=0;     
 int BatteryLevel1,BatteryLevel2 , Battery , col;        //Batteries ,   col=>indicator color
 bool Bat1 , Bat2;
+interpreter trans;
+threeBytes stor[450];
+String readin="";
+bool valid=0 , start=0;
+int instructionNum=0 , currentIndex=0 , loopingIndex=0 ;
+
+ 
 
 void moveCar(int movement , int turning) //takes percentage of movement and turning the analog stick is reversed in the y direction in the app, up is negative and down is positive
 {  
-	if(reverseDirections)
+  if(reverseDirections)
   {
     movement*=-1;
     if(movement!=0)turning*=-1;
@@ -60,10 +71,10 @@ void moveCar(int movement , int turning) //takes percentage of movement and turn
     bool forL=LOW , forR=LOW;     //Direction of each wheel
     if(movement>0)
     {
-      turning =-1*turning;     //when moving backwards the turning value is reversed
+      turning = -1*turning;     //when moving backwards the turning value is reversed
     }
-    right=turning;
-    left =-1*right;
+    right=turning;					//right = movement+turning
+    left =-1*right;					//left = movement-turning
     left=left+ movement;      
     right=right+movement;
     if (right<0)          //test for negative values to determine direction then make them positive for using
@@ -112,14 +123,43 @@ void BatteryIndicate()
   BatteryLevel1=map(analogRead(Battery1),0,1024,0,500);
   BatteryLevel2=map(analogRead(Battery2),0,1024,0,500);
   Battery=map(analogRead(BatteryAll),0,945,0,850);
-  Bat1=digitalRead(Battery1low);
-  Bat2=digitalRead(Battery2low);
+  Bat1=(BatteryLevel1<=280);
+  Bat2=(BatteryLevel2<=280);
   Serial.print("*B"+String(Battery)+"**L"+String(BatteryLevel1)+"**l"+String(BatteryLevel2)+"*");
   col=255*Bat1;
   Serial.print("*HR"+String(col)+"G0B0*");
   col=255*Bat2;
   Serial.print("*hR"+String(col)+"G0B0*");
 }
+String removeAllWhite(String arg)
+{
+    int j=0 , l=arg.length();
+    for (int i=0;i<l;i++)
+    {
+        if(arg[i]==' ')
+        {
+            if(i!=0)j=i;
+            while((arg[i]==' '||arg[i]=='\t')&&i<l)i++;
+
+            arg=arg.substring(0,j)+arg.substring(i,l-1);
+            l=arg.length();
+
+            i-=i-j;
+        }
+    }
+    return arg;
+}
+int findChar( String arg , char fnd)
+{
+  int l=arg.length();
+  for(int i=0;i<l/2;i++)
+  {
+    if(arg[i]==fnd)return i;
+    else if(arg[l-i-1]==fnd)return l-i-1;
+  }
+  return 0;
+}
+
 void setup() 
 {
   Serial.begin(9600);
@@ -139,17 +179,20 @@ void setup()
   pinMode(lineTrcR,INPUT);
   pinMode(lineTrcVR,INPUT);
 
-  pinMode(Battery1low,INPUT);
-  pinMode(Battery2low,INPUT);
+  pinMode(phot_ntrpt_l,INPUT);
+  pinMode(phot_ntrpt_r,INPUT);
 
 }
 
 void loop() 
 {
   BatteryIndicate();
-  dis=obstEcho()*spedSound/2;   
-  Serial.print("*X"+String(dis)+"*");    //displaying distance of nearest obstacle on the control device
-
+  if(allowObst)
+  {
+    dis=obstEcho()*spedSound/2;   
+    Serial.print("*X"+String(dis)+"*");    //displaying distance of nearest obstacle on the control device
+  }
+  
   if (abs(dis)<=maxObst&&allowObst==HIGH)        //obstacle avoidance feature
   {
     Serial.print("*AR255G0B0*");      //sending an alarming signal to control device
@@ -172,7 +215,7 @@ void loop()
     } 
   }
 
-  if (lineTrc==1)               //line tracker mode
+  if (lineTrc==1 && accDrive==0)               //line tracker mode
   {
     
       //treating the sensors readings as a binary value and converting into decimal
@@ -216,8 +259,8 @@ void loop()
       break;
 
       case 0:                 //  0 0 0 0 0    ->   {-9,-7,-5,-3,-1,1,3,5,7,9}(depend on previous state)(intermidiate values for thin tracks)
-        if(turnWeight==-4||(turnWeight!=4&&D<0))turnWeight-=1;      //if it was left turn more left
-        else if(turnWeight==4||D>0) turnWeight+=1;           //if it was right turn more right
+        if(turnWeight==-4||(turnWeight!=4&&D<0))turnWeight=-5;      //if it was left turn more left
+        else if(turnWeight==4||D>0) turnWeight=5;           //if it was right turn more right
       break;
 
       default:
@@ -330,20 +373,20 @@ void loop()
           accDrive=1;
           lineTrc=0;
         break;
-				
-				case 'J':
+        
+        case 'J':
           digisped=Serial.parseInt();
           Serial.print("*j"+String(digisped)+"*");
         break;
         
-				case 'V' :    //Accurate driving mode
+        case 'V' :    //Accurate driving mode
           reverseDirections=1;
         break;
 
         case 'v' :    //Accurate driving mode
           reverseDirections=0;
         break;
-				
+        
         default :
           moveCar(0,0);
         break;
@@ -412,13 +455,111 @@ void loop()
       }
 
     }
-    else if(accDrive==1&&lineTrc==0)
+    else if(accDrive==1&&lineTrc==0)    //accurate drive mode
     {
       switch (reading)
       {
-        case 'L' :
-          
+        case 'q' :    //Accurate driving mode
+          accDrive=0;
+          Serial.print("Going to easy drive mode.\n");
         break;
+
+        case 'C' :    //line tracker activator
+          Serial.print("Going to line tracker mode.\n");
+          accDrive=0;
+          lineTrc=1;
+          accDrive=0;
+          moveCar(0,0);
+          Serial.print("*P");
+          Serial.print(Pweight);  //displaying current Pweight on the control device
+          Serial.print("*");
+          Serial.print("*I");
+          Serial.print(Iweight);  //displaying current Iweight on the control device
+          Serial.print("*");
+          Serial.print("*D");
+          Serial.print(Dweight);  //displaying current Dweight on the control device
+          Serial.print("*");
+          Serial.print("*S");
+          Serial.print(lineTrcSpe); //displaying current speed on the control device
+          Serial.print("*");
+        break;
+        
+        case 'R' :
+          while(readin!="STOPREADING"&&readin!="STOPREADIN"&&readin!="STOP_READING"&&readin!="r"&&readin!="START")
+          {
+            if(Serial.available())
+            {
+              readin=Serial.readStringUntil(';');
+              if(readin=="r"||readin=="S")continue;
+              readin=removeAllWhite(readin);
+              readin.toUpperCase();
+              if(readin=="STOPREADING"||readin=="STOPREADIN"||readin=="STOP_READING"||readin=="START")continue;
+              int Stringlength=readin.length();
+              Serial.print(readin+";\n");
+              if(readin[0]=="L"||readin[0]=="A"||readin[0]=="R"||readin[0]=="I"||readin[0]=="G")
+              {
+                trans.putInst(readin[0]);
+                if(!trans.putArg1(readin.substring(1,Stringlength-1).toInt()))
+                {
+                  Serial.print("Argument 1 not Valid.\n");
+                  valid=0;
+                }
+                else if(!trans.putArg2(readin.substring(findChar(readin,','),Stringlength-1).toInt()))
+                {
+                  Serial.print("Argument 2 not Valid.\n");
+                  valid=0;
+                }
+                else
+                {
+                  Serial.print("OK\n");
+                  valid=1;
+                }
+                
+              }
+              else if(readin[0]=="D")
+              {
+                long millsecnds=readin.substring(1,Stringlength-1).toInt();
+                if(millsecnds>=1000000)
+                {
+                  Serial.print("Argument not Valid.\n");
+                  valid=0;
+                }
+                else
+                {
+                 trans.putInst(readin[0]);
+                 trans.putArg1(millsecnds%1000);
+                 trans.putArg2(millsecnds/1000); 
+                 valid=1;
+                }
+                
+                
+                
+              }
+              else
+              {
+                Serial.print("Command not allowed.\n");
+                valid=0;
+              }
+            }
+            if(valid==1)
+            {
+              if(instructionNum<500)
+              {
+                stor[instructionNum].store(trans.encode());
+                instructionNum++;
+                Serial.print("instruction  saved\n");
+              }
+              else
+              {
+                Serial.print("Maximum instructions reached\ninstruction not saved\n");
+              }
+            }
+          }
+          
+          readin="";
+        break;
+        
+        
       }
     }
     
@@ -426,3 +567,4 @@ void loop()
   }
 
 }
+
