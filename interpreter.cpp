@@ -4,6 +4,7 @@
   Released on Github.
 */
 
+
 #include "interpreter.h"
 
 int interpreter:: exchange(char inst , bool sign1 , bool sign2)
@@ -22,7 +23,7 @@ int interpreter:: exchange(char inst , bool sign1 , bool sign2)
 			return 8+sign2*1;
 		break;
 		
-		case 'S' :		//stop instruction
+		case 'D' :		//stop instruction
 			return 10;
 		break;
 		
@@ -53,7 +54,7 @@ char interpreter:: exchange(int opcode , bool &sign1 , bool &sign2)
 	}
 	else if(opcode==10)
 	{
-		inst='S';
+		inst='D';
 		opcode-=10;
 	}
 	else if(opcode>=11&&opcode<=14)
@@ -200,11 +201,12 @@ bool interpreter::putCode(long cod)
 
 bool interpreter::putInst(char inst)
 {
-	if (!(inst=='L'||inst=='A'||inst=='R'||inst=='S'||inst=='B'))
+	if (!(inst=='L'||inst=='A'||inst=='R'||inst=='D'||inst=='B'))
 	{
 		instruction='\0';
-		
+		return 0;
 	}
+	return 1;
 }
 
 bool interpreter::putArg1(int arg1)
