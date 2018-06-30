@@ -8,7 +8,7 @@
 
 threeBytes::threeBytes(long instruction)
 {
-  if(instruction>=16000000)
+  if(instruction>=256*256*256)
 	{
 		Byte1=0;
 		Byte2=0;
@@ -38,7 +38,13 @@ long threeBytes::aquire()
 
 bool threeBytes::store(long instruction)
 {
-	if(instruction>=16000000)
+	if(instruction==0)
+	{
+		Byte1=0;
+		Byte2=0;
+		Byte3=0;
+	}
+	if(instruction>=256*256*256)
 	{
 		return 0;
 	}
