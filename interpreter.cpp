@@ -13,25 +13,21 @@ int interpreter:: exchange(char inst , bool sign1 , bool sign2)
 	{
 		case 'L' :		//line instruction
 			return 0+sign1*2+sign2*1;
-		break;
-		
+
 		case 'A' :		//arc instruction
 			return 4+sign1*2+sign2*1;
-		break;
 		
 		case 'R' :		//repeat instruction
 			return 8+sign2*1;
-		break;
-		
+
 		case 'D' :		//stop instruction
 			return 10;
-		break;
 		
 		case 'B' :		//Bezier curve instruction(under development)
 			return 11+sign1*2+sign2*1;
-		break;
+			
 	}
-	return 100;			//for error detection
+	return '\0';			//for error detection
 }
 
 char interpreter:: exchange(int opcode , bool &sign1 , bool &sign2)
@@ -68,25 +64,21 @@ char interpreter:: exchange(int opcode , bool &sign1 , bool &sign2)
 			sign1=0;
 			sign2=0;
 			return inst;
-		break;
 		
 		case 1:
 			sign1=0;
 			sign2=1;
 			return inst;
-		break;
 		
 		case 2:
 			sign1=1;
 			sign2=0;
 			return inst;
-		break;
 		
 		case 3:
 			sign1=1;
 			sign2=1;
 			return inst;
-		break;
 	}
 	return '\0';			//for error detection
 }
@@ -123,7 +115,7 @@ long interpreter::encode(char  inst , int  arg1 , int  arg2)
 	{
 		sign2=0;
 	}
-	code=exchange(inst,sign1,sign2)*1000000+arg1*1000+arg2;
+	code=exchange(inst,sign1,sign2)*1024*1024+arg1*1024+arg2;
 	return code;
 }
 
@@ -131,9 +123,9 @@ bool interpreter::decode(long cod , char &inst , int &arg1 , int &arg2)
 {
 	code = cod;
 	bool sign1 , sign2;
-	int opcode=cod/1000000;
-	arg1=cod/1000%1000;
-	arg2=cod%1000;
+	int opcode=cod/(1024*1024);
+	arg1=cod/1024%1024;
+	arg2=cod%1024;
 	inst=exchange(opcode,sign1,sign2);
 	if(inst=='\0')return 0;
 	instruction=inst;
@@ -190,7 +182,7 @@ int interpreter::getArg2()
 
 bool interpreter::putCode(long cod)
 {
-	if (cod>=16000000)
+	if (cod>=(256*256*256))
 	{
 		code=0;
 		return 0;
@@ -211,7 +203,7 @@ bool interpreter::putInst(char inst)
 
 bool interpreter::putArg1(int arg1)
 {
-	if (arg1>=1000||arg1<+-1000)
+	if (arg1>=1024||arg1<=-1024)
 	{
 		argument1=0;
 		return 0;
@@ -222,7 +214,7 @@ bool interpreter::putArg1(int arg1)
 
 bool interpreter::putArg2(int arg2)
 {
-	if (arg2>=1000||arg2<+-1000)
+	if (arg2>=1024||arg2<=-1024)
 	{
 		argument2=0;
 		return 0;
