@@ -10,7 +10,7 @@
 
 class interpreter
 {
-  public 
+  public:
 	interpreter(char  inst , int  arg1 , int  arg2);
 	interpreter(long cod);
 	interpreter();
