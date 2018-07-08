@@ -1,17 +1,18 @@
 #include <interpreter.h>
 #include <threeBytes.h>
+#include <EEPROM.h>
 
-int lineTrcSpe=43;              //for the line tracker mode
 float Pweight=6 , Iweight=0.02 , Dweight=27;   //These are the weights for every value in PID method used in line tracker to be tunned
-#define maxObst     9             //for tuning max obstacle distance in cm
+#define maxObst     15             //for tuning max obstacle distance in cm
 #define spedSound 0.0343           //speed of sound in cm/us
 
-#define carWidth 	11.57				//car width for accurate driving(in cm)
-#define stepdis		 5105						//resolution of disk encoder (in cm*10000)
-#define pi         3.1415926535 //value of π 
-#define MaxInstruc 400
+#define carWidth  11.35       //car width for accurate driving(in cm)
+#define stepdis    5184           //resolution of disk encoder (in cm*10000)
+#define pi         3.1415926535 //value of pi 
+#define MaxInstruc 300
+#define MaxEEPROM  300
 
-int  digisped=80;    						//for keypad speed and turning
+int  digisped=255;               //for keypad speed and turning
 bool reverseDirections=0;    
 
 #define LmotorFor       2  //IN1       l298n   motor drive module
@@ -40,21 +41,26 @@ bool reverseDirections=0;
 int mov=0 , trn=0 ; //for movement
 int dis=0  ; //for ultrasonic sensor
 char reading=0 ;  //for blue-tooth readings
+char statMov='\0';	//state of car movement to detect change in directions for starting up the motor
 bool lineTrc =0  , accDrive=1 , allow=0   , allowObst=0;  //flag for modes , allowing movement , allowing obstacle avoidance
 int lineTrcTurn=0 , turnWeight=0 , lastTurn=0;
 int P=0 , I=0 , D=0 ;   //using the PID method to increase efficiency of line tracking
-float  turnValue=0;     
+float  turnValue=0;   
+unsigned char avgTurns[100];
+int sumTurns=0 , ndex=0;
+  
 int BatteryLevel1,BatteryLevel2 , Battery , col;        //Batteries ,   col=>indicator color
 bool Bat1 , Bat2;
 interpreter trans;
-//threeBytes stor[MaxInstruc];
+threeBytes stor[MaxInstruc];
 String readin="";
 bool valid=0 ;
-int instructionNum=0 , currentIndex=0 , loopingIndex=0 ;
+int instructionNum=0 , currentIndex=0 ;
+int instructionsEEPROM=0 , currentEEPROM=0 ;
 
  
 
-void moveCar(int movement , int turning) //takes percentage of movement and turning the analog stick is reversed in the y direction in the app, up is negative and down is positive
+void moveCar(int movement , int turning) //takes  movement and turning , the analog stick is reversed in the y direction in the app, up is negative and down is positive
 {  
   if(reverseDirections)
   {
@@ -69,6 +75,7 @@ void moveCar(int movement , int turning) //takes percentage of movement and turn
     digitalWrite(RmotorFor,LOW);
     digitalWrite(RmotorBac,LOW);
     digitalWrite(RmotorSpe,LOW);
+		statMov='\0';
   }
   else
   {
@@ -78,35 +85,52 @@ void moveCar(int movement , int turning) //takes percentage of movement and turn
     {
       turning = -1*turning;     //when moving backwards the turning value is reversed
     }
-    right=turning;					//right = movement+turning
-    left =-1*right;					//left = movement-turning
-    left=left+ movement;      
-    right=right+movement;
+    right=movement+turning;					
+    left =movement-turning;					
+    // left=left+ movement;      
+    // right=right+movement;
     if (right<0)          //test for negative values to determine direction then make them positive for using
     {
       forR=HIGH;
       right=0-right;
+			if(statMov!='a'&&statMov!='c')statMov='\0';
     } 
-    else forR=LOW;
-    if (left<0)
+    else 
+		{
+			forR=LOW;
+			if(statMov!='b'&&statMov!='d')statMov='\0';
+    }
+		if (left<0)
     {
       forL=HIGH;
       left=0-left;
+			if(statMov!='a'&&statMov!='b')statMov='\0';
     }
-    else forL=LOW;
-
-    right=map(right,0,100,90,255); 
-    left=map(left,0,100,90,255);
+    else 
+		{
+			forL=LOW;
+			if(statMov!='c'&&statMov!='d')statMov='\0';
+    }
+// 		left*=error_value;
+//    right=map(right,0,100,0,255); 
+//    left=map(left,0,100,0,255);
     left=constrain(left,0,255);
     right=constrain(right,0,255);
     
-    Serial.print("*C"+String(left)+"*");
-    Serial.print("*E"+String(right)+"*");
+// 	Serial.print("*C"+String(left)+"*");
+// 	Serial.print("*E"+String(right)+"*");
     digitalWrite(LmotorFor,forL);
     digitalWrite(LmotorBac,!forL);
-    analogWrite(LmotorSpe,left);
     digitalWrite(RmotorFor,forR);
     digitalWrite(RmotorBac,!forR);
+		if(statMov=='\0')
+		{
+			analogWrite(LmotorSpe,255);
+			analogWrite(RmotorSpe,255);
+			delay(10);
+			statMov=('a'+(!forL*2)+(!forR*1));
+		}
+    analogWrite(LmotorSpe,left);
     analogWrite(RmotorSpe,right);
   }
 }
@@ -154,7 +178,8 @@ String removeAllWhite(String arg)
     }
     return arg;
 }
-int findChar( String arg , char fnd)
+
+/*int findChar( String arg , char fnd)
 {
   int l=arg.length();
   for(int i=0;i<l/2;i++)
@@ -163,19 +188,30 @@ int findChar( String arg , char fnd)
     else if(arg[l-i-1]==fnd)return l-i-1;
   }
   return 0;
-}
+}*/
+
 
 bool lin(int dist)
 {
+	if(dist==0)return 0;
 	bool st1 =digitalRead(phot_ntrpt_l);
 	bool st2 =digitalRead(phot_ntrpt_r);
 	bool ls1 =st1 , ls2 =st2 , backw=(dist<0);
-	
+
+  //dist=(float)dist*0.94;
+	dist-=5;
 	if(backw)dist*=-1;
 	
 	int i=0 , j=0;
-	moveCar(((digisped*backw)+(-1*digisped*!backw)), 0);
-	while((long)i* stepdis <(long)dist*10000)
+  if(backw)
+	{
+		digisped=146;
+		dist-=10;
+	}
+	else digisped=-146;
+	//int turnn=-40;
+	moveCar(digisped, 45);
+	while(((long)i* stepdis <(long)dist*10000)&&((long)j* stepdis <(long)dist*10000))
 	{
 		st1= digitalRead(phot_ntrpt_l);
 		st2= digitalRead(phot_ntrpt_r);
@@ -189,40 +225,37 @@ bool lin(int dist)
 			j++;
 			ls2=st2;
 		}
-		// if(i%10==0 && i!=j)
-		// {
-			// moveCar(((digisped*backw)+(-1*digisped*!backw)) , (j-i));
-		// }
+//		 if(i%20==0 && i!=j)
+//		 {
+//			 moveCar(digisped, (j-i));
+//		 }
 	}
 	moveCar(0,0);
 
 	return 1;
 }
 
-
-bool arc(int rad , int theta)
+bool ang(int angl)
 {
-	int disRate=(int)((float)((float)theta*10000.0*(pi/180.0)*(float)(rad+carWidth/2))/stepdis);
+	if(angl==0)return 0;
 	bool st1 =digitalRead(phot_ntrpt_l);
 	bool st2 =digitalRead(phot_ntrpt_r);
-	bool ls1 =st1 , ls2 =st2 , negrad=(rad<0) , backw=(theta<0);
-	int trn;
+	bool ls1 =st1 , ls2 =st2 , antclk=(angl<0);
 	
-	if(negrad)rad*=-1;
-	if(backw)theta*=-1;
-	if(rad==0)
-	{
-		moveCar(0,((digisped*backw)+(-1*digisped*!backw)));
-	}
-	else
-	{
-		trn=digisped*carWidth/(2*rad);
-		trn=(trn*!negrad)+(-1*trn*negrad);
-		moveCar(((digisped*backw)+(-1*digisped*!backw)),trn);
-	}
+	angl=(float)((float)angl*carWidth*pi)/360.0;
+	angl=(float)angl*2.45;
+	if(antclk)angl*=-1;
+	
 	int i=0 , j=0;
-	while(i<disRate)
+  if(antclk)digisped=230;
+  else digisped=-230;
+  moveCar( 0,digisped);
+  // Serial.print(angl);
+  // Serial.print("\n");
+	while(((long)i* stepdis <(long)angl*10000)&&((long)j* stepdis <(long)angl*10000))
 	{
+  Serial.print(i);
+  Serial.print("\n");
 		st1= digitalRead(phot_ntrpt_l);
 		st2= digitalRead(phot_ntrpt_r);
 		if((st1&&!ls1)||(!st1&&ls1))
@@ -235,72 +268,110 @@ bool arc(int rad , int theta)
 			j++;
 			ls2=st2;
 		}
-		// if(i%10==0 && i*(rad-carWidth/2)<j*(rad+carWidth/2))
-		// {
-			// trn+=trn-(digisped*(i-j)/(i+j));
-			// moveCar(((digisped*backw)+(-1*digisped*!backw)) , trn );
-		// }
+		 /*if(i%20==0 && i!=j)
+		 {
+			 moveCar((j-i) ,digisped);
+		 }*/
 	}
 	moveCar(0,0);
 
+	return 1;
+}
+
+bool arc(int rad , int theta)
+{
+  if(rad==0&&theta==0)return 0;
+	
+	else if(rad==0)
+	{
+		return ang(theta);
+	}
+	int angles=12;
+  if(rad<0)
+  {
+    rad*=-1;
+    angles*=-1;
+  }
+	
+	int distances=-1*rad*sin(6);
+  if(theta<0)
+  {
+    theta*=-1;
+    distances*=-1;
+  }
+	
+	int i=0;
+	while(i<(theta/12)+1)
+	{
+		lin(distances);
+   delay(100);
+		ang(angles);
+   delay(100);
+		i++;
+	}
+	lin(distances*(theta%12)/12);
+	
 	return 1;
 }
 
 bool execute(interpreter instr)
 {
-	switch (instr.getInst())
-	{
-		case 'L' :
-			arc(0,instr.getArg2());
-			lin(instr.getArg1());
-		break;
-		
-		case 'A' :
-			arc(instr.getArg1(),instr.getArg2());
-		break;
-		
-		case 'D' :
-			delay(instr.getArg2()*1024+instr.getArg1());
-		break;
-		
-		case 'R' :
-			int start_cond , end_cond;
-			if(instr.getArg1()>0)
-			{
-				start_cond=currentIndex;
-				end_cond=currentIndex+instr.getArg1();
-			}
-			else
-			{
-				start_cond=currentIndex+instr.getArg1();
-				end_cond=currentIndex;
-			}
-			for(int j=0 ; j<instr.getArg2 ; j++)
-			{
-				for(int i=start_cond;i<end_cond;i++)
-				{
-					instr.putCode(stor[i].aquire());
-					instr.decode();
-					execute[instr];
-				}
-			}
-			currentIndex=end_cond;
-			break;
-		
-		default:
-			return 0;
-		break;
-		
-	}
-	return 1;
+  switch (instr.getInst())
+  {
+    case 'L' :
+      arc(0,instr.getArg2());
+      lin(instr.getArg1());
+    break;
+    
+    case 'A' :
+      arc(instr.getArg1(),instr.getArg2());
+    break;
+    
+    case 'D' :
+      delay(instr.getArg2()*1024+instr.getArg1());
+    break;
+    
+    case 'R' :
+      int start_cond , end_cond , end_value;
+      if(instr.getArg1()>0)
+      {
+        start_cond=currentIndex+1;
+        end_cond=currentIndex+instr.getArg1()+1;
+				end_value=currentIndex+instr.getArg1();
+      }
+      else
+      {
+        start_cond=currentIndex+instr.getArg1();
+        end_cond=currentIndex;
+				end_value=currentIndex;
+      }
+      for(int j=0 ; j<instr.getArg2 ; j++)
+      {
+        for(int i=start_cond;i<end_cond;i++)
+        {
+          instr.putCode(stor[i].aquire());
+          instr.decodeit();
+          execute[instr];
+        }
+      }
+      currentIndex=end_value;
+      break;
+    
+    default:
+      return 0;
+    break;
+    
+  }
+  return 1;
 }
 
 void setup() 
 {
-	for (int i=0;i<MaxInstruc;i++);
-	{
-		stor[i].store(0);
-	}
+  for (int i=0;i<MaxInstruc;i++);
+  {
+    stor[i].store(0);
+		if(i<100)avgTurns[i]=0;
+  }
   Serial.begin(9600);
   pinMode(LmotorFor,OUTPUT);
   pinMode(LmotorBac,OUTPUT);
@@ -325,7 +396,7 @@ void setup()
 
 void loop() 
 {
-  BatteryIndicate();
+  if(!accDrive)BatteryIndicate();
   if(allowObst)
   {
     dis=obstEcho()*spedSound/2;   
@@ -358,48 +429,59 @@ void loop()
   {
     
       //treating the sensors readings as a binary value and converting into decimal
-    lineTrcTurn=(!digitalRead(lineTrcVL))*16+(digitalRead(lineTrcL))*8+(digitalRead(lineTrcM))*4+(digitalRead(lineTrcR))*2+(!digitalRead(lineTrcVR));
+    lineTrcTurn=(digitalRead(lineTrcVL))*16+(digitalRead(lineTrcL))*8+(digitalRead(lineTrcM))*4+(digitalRead(lineTrcR))*2+(digitalRead(lineTrcVR));
     switch (lineTrcTurn)
     {
-      case 1:                 //  0 0 0 0 1    ->    8
-        turnWeight=8;
-      break;
-
-      case 3:                 //  0 0 0 1 1    ->   6
-        turnWeight=6;
-      break;
-
-      case 2:                 //  0 0 0 1 0    ->   4
+      case 1:                 //  0 0 0 0 1    ->    4
         turnWeight=4;
       break;
 
-      case 6:                 //  0 0 1 1 0    ->   2
+			case 7:									//	0 0 1 1 1    
+      case 3:                 //  0 0 0 1 1    ->    3
+        turnWeight=3;
+      break;
+
+      case 2:                 //  0 0 0 1 0    ->    2
         turnWeight=2;
       break;
 
-      case 4:                 //  0 0 1 0 0    ->   0
+      case 6:                 //  0 0 1 1 0    ->    1
+        turnWeight=1;
+      break;
+
+      case 14:								//	0 1 1 1 0    
+      case 4:                 //  0 0 1 0 0    ->    0
         turnWeight=0;
       break;
 
-      case 12:                //  0 1 1 0 0    ->   -2
+      case 12:                //  0 1 1 0 0    ->   -1
+        turnWeight=-1;
+      break;
+
+      case 8:                 //  0 1 0 0 0    ->   -2
         turnWeight=-2;
       break;
 
-      case 8:                 //  0 1 0 0 0    ->   -4
+      case 28:								//	1 1 1 0 0    
+      case 24:                //  1 1 0 0 0    ->   -3
+        turnWeight=-3;
+      break;
+
+      case 16:                //  1 0 0 0 0    ->   -4
         turnWeight=-4;
       break;
 
-      case 24:                //  1 1 0 0 0    ->   -6
-        turnWeight=-6;
-      break;
-
-      case 16:                //  1 0 0 0 0    ->   -8
-        turnWeight=-8;
-      break;
-
-      case 0:                 //  0 0 0 0 0    ->   {-9,-7,-5,-3,-1,1,3,5,7,9}(depend on previous state)(intermidiate values for thin tracks)
-        if(turnWeight==-4||(turnWeight!=4&&D<0))turnWeight=-5;      //if it was left turn more left
-        else if(turnWeight==4||D>0) turnWeight=5;           //if it was right turn more right
+      case 0:                 //  0 0 0 0 0    ->   -6 , 6 or constant turning until read
+        if(turnWeight==-4)turnWeight=-6;      //if it was left turn more left
+        else if(turnWeight==4) turnWeight=6;           //if it was right turn more right
+				else
+				{
+					while(lineTrcTurn==0)
+					{
+						moveCar(-1*digisped,(sumTurns/100));
+						lineTrcTurn=(digitalRead(lineTrcVL))*16+(digitalRead(lineTrcL))*8+(digitalRead(lineTrcM))*4+(digitalRead(lineTrcR))*2+(digitalRead(lineTrcVR));
+					}
+				}
       break;
 
       default:
@@ -412,10 +494,15 @@ void loop()
     I=I+turnWeight;                   //the integral value is the accumulation of all the previous turn weights (readings)
     D=turnWeight-lastTurn;                //the differential value is the difference between current and last turn weights
     turnValue=(P*Pweight)+(I*Iweight)+(D*Dweight);    //finally the turning value which will control the response of the car is the sum of all values
-    lastTurn=turnWeight;                //each multiplied by their respective weights
+    sumTurns-=avgTurns[ndex];
+		avgTurns[ndex]=turnValue;
+		sumTurns+=avgTurns[ndex];
+		ndex=(ndex+1)%100;
+		
+		lastTurn=turnWeight;                //each multiplied by their respective weights
     turnValue=constrain(turnValue,-100,100);
     if(allow==HIGH)
-    {moveCar(-1*lineTrcSpe,turnValue);}
+    {moveCar(-1*digisped,turnValue);}
 
     Serial.print("*p");
     Serial.print(P);  //displaying current P on the control device
@@ -442,17 +529,17 @@ void loop()
           if(reading=='Y')
           {
             mov=Serial.parseInt();
-						while(Serial.available())
-						{
-							reading=Serial.read();
-							if(reading=='x')
-							{
-								trn=Serial.parseInt();
-								reading=Serial.read();
-								if(reading=='Y')mov=Serial.parseInt();
-							}
-							else break;
-						}
+						// while(Serial.available())
+						// {
+							// reading=Serial.read();
+							// if(reading=='x')
+							// {
+								// trn=Serial.parseInt();
+								// reading=Serial.read();
+								// if(reading=='Y')mov=Serial.parseInt();
+							// }
+							// else break;
+						// }
             moveCar(mov,trn);
           }
         break;
@@ -494,7 +581,8 @@ void loop()
         break;
 
         case 'C' :    //line tracker activator
-          accDrive=0;
+          digisped=180;
+					accDrive=0;
           lineTrc=1;
           moveCar(0,0);
           Serial.print("*P");
@@ -507,7 +595,7 @@ void loop()
           Serial.print(Dweight);  //displaying current Dweight on the control device
           Serial.print("*");
           Serial.print("*S");
-          Serial.print(lineTrcSpe); //displaying current speed on the control device
+          Serial.print(digisped); //displaying current speed on the control device
           Serial.print("*");
         break;
         
@@ -520,7 +608,8 @@ void loop()
         break;
         
         case 'Q' :    //Accurate driving mode
-          accDrive=1;
+          Serial.print("\nGoing to accurate drive mode.\nBattery indication disabled.\n");
+					accDrive=1;
           lineTrc=0;
         break;
         
@@ -547,6 +636,7 @@ void loop()
       switch (reading)
       {
         case 'c':
+					digisped=255;
           lineTrc=0;
           moveCar(0,0);
           P=0;
@@ -555,7 +645,8 @@ void loop()
         break;
         
         case 'Q' :    //Accurate driving mode
-          accDrive=1;
+          Serial.print("\nGoing to accurate drive mode.\nBattery indication disabled.\n");
+					accDrive=1;
           lineTrc=0;
         break;
         
@@ -596,10 +687,10 @@ void loop()
         break;
 
         case 's':       //for tuning speed on the fly
-          lineTrcSpe=Serial.parseInt();
-          lineTrcSpe=constrain(lineTrcSpe,-100,100);
+          digisped=Serial.parseInt();
+          digisped=constrain(digisped,-100,100);
           Serial.print("*S");
-          Serial.print(lineTrcSpe); //displaying current speed on the control device
+          Serial.print(digisped); //displaying current speed on the control device
           Serial.print("*");
         break;
       }
@@ -610,13 +701,15 @@ void loop()
       switch (reading)
       {
         case 'q' :    //Accurate driving mode
-          accDrive=0;
+          digisped=255;
+					accDrive=0;
 					lineTrc=0;
           Serial.print("Going to easy drive mode.\n");
         break;
 
         case 'C' :    //line tracker activator
-          Serial.print("Going to line tracker mode.\n");
+          digisped=180;
+					Serial.print("Going to line tracker mode.\n");
           accDrive=0;
           lineTrc=1;
           moveCar(0,0);
@@ -630,219 +723,339 @@ void loop()
           Serial.print(Dweight);  //displaying current Dweight on the control device
           Serial.print("*");
           Serial.print("*S");
-          Serial.print(lineTrcSpe); //displaying current speed on the control device
+          Serial.print(digisped); //displaying current speed on the control device
           Serial.print("*");
         break;
         
-        case 'R' :
-          while(readin!="STOPREADING"&&readin!="STOPREADIN"&&readin!="STOP_READING"&&readin!="r"&&readin!="START"&&readin!="S")
-          {
-            if(Serial.available())
-            {
-              readin=Serial.readStringUntil(';');
-              if(readin=="r"||readin=="S")continue;
-              readin=removeAllWhite(readin);
-              readin.toUpperCase();
-              if(readin=="STOPREADING"||readin=="STOPREADIN"||readin=="STOP_READING"||readin=="START")continue;
-							if(readin=="CLEARALL")
+        case 't' :
+					Serial.print("Read mode enabled.\n");
+					flag=0;
+          while(!flag)
+					{
+						if(Serial.available())
+						{
+							reading=Serial.read();
+							if(reading<='z'&&reading>='a')reading-=('a'-'A'); //to uppercase
+							switch (reading)
 							{
-								instructionNum=0;
-								currentIndex=0;
-								loopingIndex=0;
-								for (int i=0;i<MaxInstruc;i++);
+								case 'J':		//start button
+								case 'T':		//read enable switch off
 								{
-									stor[i].store(0);
+									flag=1;
+									Serial.print(" leaving read mode.\n");
+                  if(reading=='J')goto starting;
+									Serial.flush();
+									continue;
 								}
-								continue;
-							}
-							if(readin=="CLEARLAST")
-							{
-								instruction--;
-								continue;
-							}
-              int Stringlength=readin.length();
-              Serial.print(readin+";\n");
-              if(readin[0]=="L"||readin[0]=="A"||readin[0]=="R")
-              {
-                trans.putInst(readin[0]);
-                if(!trans.putArg1(readin.substring(1,Stringlength-1).toInt()))
-                {
-                  Serial.print("Argument 1 not Valid.\n");
-                  valid=0;
-                }
-                else if(!trans.putArg2(readin.substring(findChar(readin,','),Stringlength-1).toInt()))
-                {
-                  Serial.print("Argument 2 not Valid.\n");
-                  valid=0;
-                }
-                else
-                {
-                  Serial.print("OK\n");
-                  valid=1;
-                }
-                
-              }
-              else if(readin[0]=="D")
-              {
-                long millsecnds=readin.substring(1,Stringlength-1).toInt();
-                if(millsecnds>=1024*1024)
-                {
-                  Serial.print("Argument not Valid.\n");
-                  valid=0;
-                }
-                else
-                {
-									Serial.print("OK\n");
-									trans.putInst(readin[0]);
-									trans.putArg1(millsecnds%1024);
-									trans.putArg2(millsecnds/1024); 
-									valid=1;
-                }
-							}
-							else if(readin[0]=="I")
-							{
-								valid=0;
-								int arg1=readin.substring(1,Stringlength-1).toInt();
-								int arg2=readin.substring(findChar(readin,','),Stringlength-1).toInt();
-								bool negat=0;
-								if(arg1<0)
-								{
-									negat=!negat;
-									arg1*=-1;
-								}
-								if(arg2<0)
-								{
-									negat=!negat;
-									arg2*=-1;
-								}
-								if(l>=1024||alpha>=1024)
-								{
-									Serial.print("Arguments not Valid.\n");
-                	continue;
-								}
-								float alpha=2.0*acos((float)(-2*arg2)/(float)arg1;
-								int l=(int)(arg1*sin((float)alpha/2);
-								alpha=alpha*180.00/pi;
-								if(l>=1024||alpha>=1024)
-								{
-									Serial.print("Arguments not Valid.\n");
-                  continue;
-								}
-								else
-								{
-									if(negat)arg2*=-1;
-									trans.putCode('A');
-									trans.putArg1(arg2);
-									trans.putArg2(alpha/2);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('L');
-									trans.putArg1(l);
-									trans.putArg2(0);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('A');
-									trans.putArg1(-1*arg2);
-									trans.putArg2(alpha);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('L');
-									trans.putArg1(l);
-									trans.putArg2(0);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('A');
-									trans.putArg1(arg2);
-									trans.putArg2(alpha/2);
-									stor[instructionNum++].store(trans.encode());
-								}
+								break;
 								
+								case 'L':		//line instruction
+								case 'A':		//Arc instruction
+								case 'R':		//Repeat instruction
+								{
+									Serial.print(trans.putInst(reading));
+									if(!trans.putArg1(Serial.parseInt()))
+									{
+										Serial.print("Argument1 not valid.\n");
+										valid=0;
+										continue;
+									}
+									if(!trans.putArg2(Serial.parseInt()))
+									{
+										Serial.print("Argument2 not valid.\n");
+										valid=0;
+										continue;
+									}
+									else 
+									{
+										Serial.print("OK\n");
+										if(instructionNum<MaxInstruc)
+										{
+											Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+											stor[instructionNum++].store(trans.encode());
+											Serial.print("instruction  saved\n");
+										}
+										else
+										{
+											Serial.print("Maximum instructions reached\ninstruction not saved\n");
+										}
+									}
+									Serial.flush();
+								}
+								break;
+								
+								case 'D':		//Repeat instruction
+								{
+									trans.putInst(reading);
+									m_sec=(long)Serial.parseInt();
+									trans.putArg1(m_sec%1024);
+									if(!trans.putArg2(m_sec/1024))
+									{
+										Serial.print("Argument not valid.\n");
+										valid=0;
+										continue;
+									}
+									else 
+									{
+										Serial.print("OK\n");
+										if(instructionNum<MaxInstruc)
+										{
+											Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+											stor[instructionNum++].store(trans.encode());
+											Serial.print("instruction  saved\n");
+										}
+										else
+										{
+											Serial.print("Maximum instructions reached\ninstruction not saved\n");
+											continue;
+										}
+									}
+									Serial.flush();
+								}
+								break;
+								
+								case 'I':		//infinity shape instruction
+								{
+									int arg1=Serial.parseInt();
+									int arg2=Serial.parseInt();
+									bool negat=0;
+									if(arg1<0)
+									{
+										negat=!negat;
+										arg1*=-1;
+									}
+									if(arg2<0)
+									{
+										negat=!negat;
+										arg2*=-1;
+									}
+									float alpha=2.0*acos((float)(-2*arg2)/(float)arg1);
+									int l=(int)(arg1*sin((float)alpha/2));
+									alpha=alpha*180.00/pi;
+									if(l>=1024||alpha>=1024)
+									{
+										Serial.print("Arguments not Valid.\n");
+										continue;
+									}
+									else
+									{
+										Serial.print("OK\n");
+										if(instructionNum+4<MaxInstruc)
+										{
+											Serial.print("instruction  saved\n");
+										}
+										else
+										{
+											Serial.print("Maximum instructions reached\ninstruction not saved\n");
+											continue;
+										}
+										if(negat)arg2*=-1;
+										trans.putInst('A');
+										trans.putArg1(arg2);
+										trans.putArg2(alpha/2);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('L');
+										trans.putArg1(l);
+										trans.putArg2(0);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('A');
+										trans.putArg1(-1*arg2);
+										trans.putArg2(alpha);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('L');
+										trans.putArg1(l);
+										trans.putArg2(0);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('A');
+										trans.putArg1(arg2);
+										trans.putArg2(alpha/2);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+									}
+								}
+								break;
+								
+								case 'G':		//rectangle instruction
+								{
+									int arg1=Serial.parseInt();
+									int arg2=Serial.parseInt();
+									if(!trans.putArg1(arg1)||!trans.putArg2(arg2))
+									{
+										Serial.print("Arguments not Valid.\n");
+										continue;
+									}
+									else if(arg1==arg2)
+									{
+										Serial.print("OK\n");
+										if(instructionNum+2<MaxInstruc)
+										{
+											Serial.print("instruction  saved\n");
+										}
+										else
+										{
+											Serial.print("Maximum instructions reached\ninstruction not saved\n");
+											continue;
+										}
+										trans.putInst('R');
+										trans.putArg1(1);
+										trans.putArg2(4);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('L');
+										trans.putArg1(arg1);
+										trans.putArg2(90);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+									}
+									else
+									{
+										Serial.print("OK\n");
+										if(instructionNum+1<MaxInstruc)
+										{
+											Serial.print("instruction  saved\n");
+										}
+										else
+										{
+											Serial.print("Maximum instructions reached\ninstruction not saved\n");
+											continue;
+										}
+										trans.putInst('R');
+										trans.putArg1(2);
+										trans.putArg2(2);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('L');
+										trans.putArg1(arg1);
+										trans.putArg2(90);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('L');
+										trans.putArg1(arg2);
+										trans.putArg2(90);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+									}
+								}
+								break;
+								
+								case 'P':		//polygon instruction
+								{
+									int arg1=Serial.parseInt();
+									int arg2=Serial.parseInt();
+									if(arg1<3||!trans.putArg2(arg2))
+									{
+										Serial.print("Arguments not Valid.\n");
+										continue;
+									}
+									else if(arg1==arg2)
+									{
+										Serial.print("OK\n");
+										if(instructionNum+1<MaxInstruc)
+										{
+											Serial.print("instruction  saved\n");
+										}
+										else
+										{
+											Serial.print("Maximum instructions reached\ninstruction not saved\n");
+											continue;
+										}
+										trans.putInst('R');
+										trans.putArg1(1);
+										trans.putArg2(arg1);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+										trans.putInst('L');
+										trans.putArg1(arg2);
+										trans.putArg2(360/arg1);
+										Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+										stor[instructionNum++].store(trans.encode());
+									}
+								}
+								break;
+								
+								case 'S':		//system commands (clear ,start and stop)
+								case 'C':
+								{
+									command=String(reading)+Serial.readStringUntil(';');
+									command=removeAllWhite(command);
+									command.toUpperCase();
+									if(command=="STOPREADING"||command=="STOP_READING")
+									{
+										flag=1;
+										Serial.flush();
+										Serial.print("leaving read mode.\n");
+										continue;
+									}
+									else if(command=="START")
+									{
+										flag=1;
+										reading='J';
+                    goto starting;
+										Serial.flush();
+										Serial.print("leaving read mode.\n");
+										continue;
+									}
+									
+									else if(command=="CLEARALL")
+									{
+										instructionNum=0;
+										currentIndex=0;
+										Serial.print("clearing all instructions.\n");
+										Serial.flush();
+									}
+									
+									else if(command=="CLEARLAST")
+									{
+										instructionNum--;
+										Serial.print("clearing last instruction.\n");
+										Serial.flush();
+									}
+									
+									else 
+									{
+											Serial.flush();
+											Serial.print(command+" command not valid\n");
+									}
+								}
+								break;
+
+								case '\n':
+								case '\0':
+								case '\t':
+								case '\r':
+								case ';':
+								case ' ':
+								Serial.flush();
+								continue;
+								break;
+								
+								default:  //flushing the buffer for wrong commands
+								{
+									Serial.print(String(reading)+" command not valid\n");
+									Serial.flush();
+									while(Serial.available())Serial.read();
+									reading='\0';
+								}
+								break;
 							}
-							else if(readin[0]=="G")
-							{
-								valid=0;
-								int arg1=readin.substring(1,Stringlength-1).toInt();
-								int arg2=readin.substring(findChar(readin,','),Stringlength-1).toInt();
-								if(!trans.putArg1(arg1)||!trans.putArg2(arg2))
-								{
-									Serial.print("Arguments not Valid.\n");
-                  continue;
-								}
-								else if(arg1==arg2)
-								{
-									trans.putCode('R');
-									trans.putArg1(1);
-									trans.putArg2(4);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('L');
-									trans.putArg1(arg1);
-									trans.putArg2(90);
-									stor[instructionNum++].store(trans.encode());
-								}
-								else
-								{
-									trans.putCode('R');
-									trans.putArg1(2);
-									trans.putArg2(2);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('L');
-									trans.putArg1(arg1);
-									trans.putArg2(90);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('L');
-									trans.putArg1(arg2);
-									trans.putArg2(90);
-									stor[instructionNum++].store(trans.encode());
-								}
-							}
-							else if(readin[0]=="P")
-							{
-								valid=0;
-								int arg1=readin.substring(1,Stringlength-1).toInt();
-								int arg2=readin.substring(findChar(readin,','),Stringlength-1).toInt();
-								if(arg1<3||!trans.putArg2(arg2))
-								{
-									Serial.print("Arguments not Valid.\n");
-                  continue;
-								}
-								else if(arg1==arg2)
-								{
-									trans.putCode('R');
-									trans.putArg1(1);
-									trans.putArg2(arg1);
-									stor[instructionNum++].store(trans.encode());
-									trans.putCode('L');
-									trans.putArg1(arg2);
-									trans.putArg2(360/arg1);
-									stor[instructionNum++].store(trans.encode());
-								}
-              else
-              {
-                Serial.print("Command not valid.\n");
-                valid=0;
-              }
-            }
-            if(valid==1)
-            {
-              if(instructionNum<MaxInstruc)
-              {
-                stor[instructionNum].store(trans.encode());
-                instructionNum++;
-                Serial.print("instruction  saved\n");
-              }
-              else
-              {
-                Serial.print("Maximum instructions reached\ninstruction not saved\n");
-              }
-            }
-          }
-          if(readin=="S"||readin=="START")reading='S';
-          readin="";
+						}
+					}
 					
         break;
 				
-				case 'S' :    //Accurate driving mode
+				case 'J' :    //Accurate driving mode
+          starting:
+					Serial.print("Starting Execution\n");
           while(currentIndex<instructionNum)
 					{
 						trans.putCode(stor[currentIndex++].aquire());
-						trans.decode();
-						execute[trans];
+						trans.decodeit();
+            Serial.print(String(trans.getInst())+String(trans.getArg1())+","+String(trans.getArg2())+";\n");
+						execute(trans);
 					}
 					Serial.print("Execution completed.\n");
         break;
@@ -855,4 +1068,8 @@ void loop()
   }
   
 }
+
+
+
+
 
